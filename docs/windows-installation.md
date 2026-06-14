@@ -81,6 +81,8 @@ cd "C:\Tools\LCM-Dark-Site-Orchestrator"
 The script:
 
 - installs IIS static web-server features and the IIS management console;
+- installs the IIS PowerShell scripting tools used by `Get-Website` and related
+  validation commands;
 - creates `C:\inetpub\wwwroot\darksite` if it is missing;
 - exposes that folder as `http://<server-name>/darksite/`;
 - adds MIME mappings for `.tar`, `.gz`, `.tgz`, `.json`, `.yaml`, and `.yml`;
@@ -179,10 +181,14 @@ Run **Validate Web Server** after the folder is hosted by nginx, Apache, or IIS.
 The console checks:
 
 - the configured dark-site base URL;
-- each required bundle filename detected by the latest inventory scan.
+- each required bundle path detected by the latest inventory scan, relative to
+  the configured local bundle root.
 
 URLs must use `http` or `https`. Credentials in URLs are rejected. The console
 uses short timeouts so a broken web server does not hang the operator session.
+For IIS, `403 Forbidden` on the base `/darksite/` URL is treated as a reachable
+warning when directory browsing is disabled. Direct bundle file URLs must still
+be reachable once files are staged.
 
 ## Evidence and Runbook
 

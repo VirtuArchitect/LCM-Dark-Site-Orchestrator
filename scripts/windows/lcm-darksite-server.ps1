@@ -440,7 +440,8 @@ function Test-ExtractionState {
 function Invoke-UrlProbe {
     param(
         [string]$Url,
-        [int]$TimeoutSec = 8
+        [int]$TimeoutSec = 8,
+        [switch]$AllowForbidden
     )
 
     try {
@@ -452,19 +453,56 @@ function Invoke-UrlProbe {
             throw 'Credentials in URLs are not allowed'
         }
 
-        try {
-            $result = Invoke-WebRequest -Uri $uri.AbsoluteUri -Method Head -TimeoutSec $TimeoutSec -UseBasicParsing
-        }
-        catch {
-            $result = Invoke-WebRequest -Uri $uri.AbsoluteUri -Method Get -TimeoutSec $TimeoutSec -UseBasicParsing
-        }
+        $lastError = ''
+        foreach ($method in @('HEAD', 'GET')) {
+            $probeResponse = $null
+            try {
+                $probeRequest = [System.Net.HttpWebRequest]::Create($uri.AbsoluteUri)
+                $probeRequest.Method = $method
+                $probeRequest.Timeout = $TimeoutSec * 1000
+                $probeRequest.AllowAutoRedirect = $true
+                $probeResponse = $probeRequest.GetResponse()
+                return [ordered]@{
+                    url = $uri.AbsoluteUri
+                    status = 'reachable'
+                    statusCode = [int]$probeResponse.StatusCode
+                    contentLength = if ($probeResponse.ContentLength -ge 0) { [string]$probeResponse.ContentLength } else { '' }
+                    warning = ''
+                    error = ''
+                }
+            }
+            catch [System.Net.WebException] {
+                $lastError = $_.Exception.Message
+                $probeResponse = $_.Exception.Response
+                $statusCode = if ($probeResponse) { [int]$probeResponse.StatusCode } else { 0 }
 
-        return [ordered]@{
-            url = $uri.AbsoluteUri
-            status = 'reachable'
-            statusCode = [int]$result.StatusCode
-            contentLength = if ($result.Headers['Content-Length']) { [string]$result.Headers['Content-Length'] } else { '' }
-            error = ''
+                if ($AllowForbidden -and $statusCode -eq 403) {
+                    return [ordered]@{
+                        url = $uri.AbsoluteUri
+                        status = 'reachable'
+                        statusCode = 403
+                        contentLength = ''
+                        warning = 'Base URL returned 403 Forbidden. This is acceptable for an empty IIS directory when directory browsing is disabled.'
+                        error = ''
+                    }
+                }
+
+                if ($method -eq 'GET') {
+                    return [ordered]@{
+                        url = $uri.AbsoluteUri
+                        status = 'unreachable'
+                        statusCode = $statusCode
+                        contentLength = ''
+                        warning = ''
+                        error = $lastError
+                    }
+                }
+            }
+            finally {
+                if ($probeResponse) {
+                    $probeResponse.Close()
+                }
+            }
         }
     }
     catch {
@@ -473,6 +511,7 @@ function Invoke-UrlProbe {
             status = 'unreachable'
             statusCode = 0
             contentLength = ''
+            warning = ''
             error = $_.Exception.Message
         }
     }
@@ -502,19 +541,32 @@ function Test-WebServerState {
     }
 
     $probes = @()
-    $probes += Invoke-UrlProbe -Url $base
+    $probes += Invoke-UrlProbe -Url $base -AllowForbidden
 
-    $bundleNames = @()
+    $bundlePaths = @()
     if ($Inventory -and $Inventory.checks) {
         foreach ($check in $Inventory.checks) {
             if ($check.status -eq 'found' -and $check.latest -and $check.latest.name) {
-                $bundleNames += [string]$check.latest.name
+                $localPath = [string]$check.latest.path
+                $relativePath = ''
+                if ($Inventory.root -and $localPath) {
+                    $root = [System.IO.Path]::GetFullPath([string]$Inventory.root).TrimEnd('\', '/')
+                    $fullPath = [System.IO.Path]::GetFullPath($localPath)
+                    if ($fullPath.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+                        $relativePath = $fullPath.Substring($root.Length).TrimStart('\', '/')
+                    }
+                }
+                if ([string]::IsNullOrWhiteSpace($relativePath)) {
+                    $relativePath = [string]$check.latest.name
+                }
+                $bundlePaths += $relativePath.Replace('\', '/')
             }
         }
     }
 
-    foreach ($name in ($bundleNames | Select-Object -Unique)) {
-        $escaped = [System.Uri]::EscapeDataString($name).Replace('%2F', '/')
+    foreach ($path in ($bundlePaths | Select-Object -Unique)) {
+        $segments = $path.Split('/') | ForEach-Object { [System.Uri]::EscapeDataString($_) }
+        $escaped = $segments -join '/'
         $probes += Invoke-UrlProbe -Url ([System.Uri]::new([System.Uri]$base, $escaped).AbsoluteUri)
     }
 

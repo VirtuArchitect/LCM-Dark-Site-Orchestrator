@@ -45,7 +45,8 @@ $features = @(
     'Web-Http-Errors',
     'Web-Http-Logging',
     'Web-Request-Monitor',
-    'Web-Mgmt-Console'
+    'Web-Mgmt-Console',
+    'Web-Scripting-Tools'
 )
 
 $installed = Install-WindowsFeature -Name $features -IncludeManagementTools

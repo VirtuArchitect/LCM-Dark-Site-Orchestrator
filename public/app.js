@@ -168,13 +168,20 @@ function renderWebValidation(validation) {
     ? 'No URL validation yet'
     : `${lastWebValidation.unreachableCount || 0} unreachable of ${lastWebValidation.checkedCount || probes.length} checks`;
 
+  if (lastWebValidation.status === 'blocked') {
+    const failedProbe = probes.find((probe) => probe.status !== 'reachable');
+    if (failedProbe) {
+      webServerHint.textContent = `Blocked: ${failedProbe.statusCode ? `HTTP ${failedProbe.statusCode}` : failedProbe.error || 'unreachable'}`;
+    }
+  }
+
   webValidationList.innerHTML = probes.length
     ? probes.map((probe) => `
       <div class="check-row ${probe.status === 'reachable' ? 'good' : 'bad'}">
         <span></span>
         <div>
           <strong>${probe.status === 'reachable' ? 'Reachable' : 'Unreachable'}</strong>
-          <small>${probe.url}${probe.statusCode ? ` - HTTP ${probe.statusCode}` : ''}${probe.error ? ` - ${probe.error}` : ''}</small>
+          <small>${probe.url}${probe.statusCode ? ` - HTTP ${probe.statusCode}` : ''}${probe.warning ? ` - ${probe.warning}` : ''}${probe.error ? ` - ${probe.error}` : ''}</small>
         </div>
       </div>
     `).join('')
