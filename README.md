@@ -79,6 +79,7 @@ update engine.
 - Windows jumpserver runtime and installer scaffolding.
 - Optional Windows Server/IIS dark-site web-root bootstrap script.
 - Local profile save/load API.
+- Local bundle staging folder preparation API.
 - Bundle inventory scan API for required dark-site bundle types.
 - SHA-256 checksum capture for detected bundle files.
 - Extracted Nutanix Central and CPaaS folder/payload validation.
@@ -94,6 +95,7 @@ The PowerShell runtime exposes a small localhost API used by the dashboard:
 |---|---|
 | `GET /api/health` | Runtime status and data directory. |
 | `GET/POST /api/profile` | Load or save the local dark-site profile. |
+| `POST /api/folder` | Create or confirm the configured local bundle staging folder. |
 | `GET/POST /api/inventory` | Load or run required bundle inventory and checksum capture. |
 | `GET/POST /api/extraction` | Load or run extracted-folder validation. |
 | `GET/POST /api/web-validation` | Load or run HTTP reachability validation. |

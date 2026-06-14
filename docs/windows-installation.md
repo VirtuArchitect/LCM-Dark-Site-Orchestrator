@@ -108,6 +108,21 @@ After the helper completes, copy or extract the Nutanix LCM dark-site bundles
 into the physical path and set the console's **Dark-site URL** to the reported
 URL.
 
+## Preparing the Bundle Folder
+
+The console does not require bundles to exist before the profile is created. On
+a fresh server:
+
+1. Enter the intended **Local Bundle Path**, for example
+   `C:\inetpub\wwwroot\darksite` or `C:\Share\darksite`.
+2. Click **Prepare Bundle Folder**.
+3. Copy or extract the Nutanix LCM dark-site bundles into that folder.
+4. Click **Scan Bundle Inventory**.
+
+The prepare action creates the folder if it is missing and writes a small marker
+file explaining what should be staged there. It rejects relative paths and drive
+or share roots to avoid accidentally using an unsafe location.
+
 ## Data Locations
 
 ```text

@@ -290,6 +290,47 @@ function Save-JsonFile {
     $Body | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $Path -Encoding utf8
 }
 
+function Initialize-BundleFolder {
+    param([string]$BundlePath)
+
+    if ([string]::IsNullOrWhiteSpace($BundlePath)) {
+        throw 'Bundle path is required'
+    }
+
+    if (-not [System.IO.Path]::IsPathRooted($BundlePath)) {
+        throw 'Bundle path must be an absolute local or UNC path'
+    }
+
+    $fullPath = [System.IO.Path]::GetFullPath($BundlePath)
+    $root = [System.IO.Path]::GetPathRoot($fullPath)
+    if ($fullPath.TrimEnd('\') -eq $root.TrimEnd('\')) {
+        throw 'Bundle path must not be a drive or share root'
+    }
+
+    $existed = Test-Path -LiteralPath $fullPath -PathType Container
+    if (-not $existed) {
+        New-Item -ItemType Directory -Force -Path $fullPath | Out-Null
+    }
+
+    $markerPath = Join-Path $fullPath 'README-LCM-DARKSITE.txt'
+    if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+        @(
+            'LCM Dark Site staging folder',
+            '',
+            'Copy or extract Nutanix LCM dark-site source bundles into this folder before running inventory validation.',
+            'This marker file can be removed after the real bundle content is staged.'
+        ) | Set-Content -LiteralPath $markerPath -Encoding utf8
+    }
+
+    return [ordered]@{
+        status = 'ready'
+        path = $fullPath
+        created = -not $existed
+        marker = $markerPath
+        message = if ($existed) { 'Bundle folder already exists.' } else { 'Bundle folder created.' }
+    }
+}
+
 function Find-FirstDirectory {
     param(
         [string]$Root,
@@ -621,6 +662,15 @@ function Handle-ApiRequest {
         if ($request.HttpMethod -eq 'POST') {
             $payload = Read-JsonRequest -Request $request
             Write-JsonResponse -Response $response -Body (Save-Profile -Profile $payload)
+            return $true
+        }
+    }
+
+    if ($path -eq '/api/folder') {
+        if ($request.HttpMethod -eq 'POST') {
+            $payload = Read-JsonRequest -Request $request
+            $bundlePath = [string](Get-JsonValue -Object $payload -Name 'bundlePath')
+            Write-JsonResponse -Response $response -Body (Initialize-BundleFolder -BundlePath $bundlePath)
             return $true
         }
     }

@@ -4,6 +4,7 @@ const siteName = document.querySelector('#site-name');
 const darksiteUrl = document.querySelector('#darksite-url');
 const bundlePath = document.querySelector('#bundle-path');
 const saveProfileButton = document.querySelector('#save-profile-button');
+const prepareFolderButton = document.querySelector('#prepare-folder-button');
 const scanButton = document.querySelector('#scan-button');
 const extractionButton = document.querySelector('#extraction-button');
 const webValidationButton = document.querySelector('#web-validation-button');
@@ -266,6 +267,23 @@ saveProfileButton.addEventListener('click', async () => {
     });
     renderProfile(profile);
     setMessage('Profile saved locally.');
+  } catch (error) {
+    setMessage(error.message, 'error');
+  }
+});
+
+prepareFolderButton.addEventListener('click', async () => {
+  try {
+    setMessage('Preparing local bundle folder...');
+    const profile = selectedProfile();
+    await api('/api/profile', { method: 'POST', body: JSON.stringify(profile) });
+    const folder = await api('/api/folder', {
+      method: 'POST',
+      body: JSON.stringify({ bundlePath: profile.bundlePath }),
+    });
+    bundlePath.value = folder.path || profile.bundlePath;
+    setMessage(`${folder.message} Copy or extract the Nutanix dark-site bundles there, then run inventory.`, 'success');
+    renderReadiness();
   } catch (error) {
     setMessage(error.message, 'error');
   }
