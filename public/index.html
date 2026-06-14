@@ -81,6 +81,8 @@
         </div>
         <div class="profile-actions">
           <button class="btn-primary" id="scan-button">Scan Bundle Inventory</button>
+          <button class="btn" id="extraction-button">Validate Extraction</button>
+          <button class="btn" id="web-validation-button">Validate Web Server</button>
           <span class="helper" id="profile-message">Profile values are stored locally on the jumpserver.</span>
         </div>
       </section>
@@ -98,8 +100,8 @@
         </article>
         <article class="metric-card">
           <span class="metric-label">Web Server</span>
-          <strong id="web-server-mode">Unknown</strong>
-          <span class="metric-hint" id="web-server-hint">Linux recommended, Windows lab-assisted</span>
+          <strong id="web-server-mode">Pending</strong>
+          <span class="metric-hint" id="web-server-hint">No URL validation yet</span>
         </article>
         <article class="metric-card">
           <span class="metric-label">Last Validation</span>
@@ -146,10 +148,36 @@
         <article class="panel">
           <div class="panel-heading">
             <div>
+              <h2>Extraction Checks</h2>
+              <p>Expected extracted Nutanix Central and CPaaS payloads</p>
+            </div>
+            <span class="badge warn" id="extraction-badge">Pending</span>
+          </div>
+          <div class="check-list" id="extraction-list">
+            <div class="check-row muted"><span></span><div>Run extraction validation after unpacking bundles.</div></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Web Reachability</h2>
+              <p>HTTP checks against the configured dark-site URL</p>
+            </div>
+            <span class="badge warn" id="web-validation-badge">Pending</span>
+          </div>
+          <div class="check-list" id="web-validation-list">
+            <div class="check-row muted"><span></span><div>Run web validation after the folder is hosted.</div></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
               <h2>Readiness Issues</h2>
               <p>Items blocking evidence capture</p>
             </div>
-            <span class="badge danger">4 blockers</span>
+            <span class="badge danger" id="issues-badge">4 blockers</span>
           </div>
           <ul class="issue-list" id="issue-list">
             <li>No dark-site profile has been saved.</li>
@@ -157,6 +185,21 @@
             <li>No web server URL has been validated.</li>
             <li>No evidence pack has been generated.</li>
           </ul>
+        </article>
+
+        <article class="panel wide-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Evidence & Runbook</h2>
+              <p>Generate a change-ready evidence bundle from the latest local validation state</p>
+            </div>
+            <div class="panel-actions">
+              <button class="btn" id="runbook-button">Generate Runbook</button>
+              <button class="btn-primary" id="evidence-button">Create Evidence Pack</button>
+            </div>
+          </div>
+          <pre class="runbook-preview" id="runbook-preview">No runbook generated yet.</pre>
+          <div class="evidence-list" id="evidence-list">No evidence packs created yet.</div>
         </article>
       </section>
     </main>

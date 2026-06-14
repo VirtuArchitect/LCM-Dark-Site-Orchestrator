@@ -102,6 +102,18 @@ function Get-InventoryPath {
     Join-Path $DataDir 'last-inventory.json'
 }
 
+function Get-ExtractionPath {
+    Join-Path $DataDir 'last-extraction.json'
+}
+
+function Get-WebValidationPath {
+    Join-Path $DataDir 'last-web-validation.json'
+}
+
+function Get-EvidenceDir {
+    Join-Path $DataDir 'evidence'
+}
+
 function Get-DefaultProfile {
     [ordered]@{
         siteName = ''
@@ -260,6 +272,327 @@ function Load-Inventory {
     return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
 }
 
+function Load-JsonFile {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+    return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+}
+
+function Save-JsonFile {
+    param(
+        [string]$Path,
+        [object]$Body
+    )
+
+    $Body | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $Path -Encoding utf8
+}
+
+function Find-FirstDirectory {
+    param(
+        [string]$Root,
+        [string]$Pattern
+    )
+
+    @(Get-ChildItem -LiteralPath $Root -Directory -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like $Pattern } |
+        Sort-Object FullName |
+        Select-Object -First 1)[0]
+}
+
+function Test-DirectoryArtifact {
+    param(
+        [System.IO.DirectoryInfo]$Directory,
+        [string]$Label,
+        [string[]]$Patterns
+    )
+
+    if (-not $Directory) {
+        return [ordered]@{
+            label = $Label
+            status = 'missing'
+            detail = 'Parent folder was not found'
+            path = ''
+        }
+    }
+
+    $matches = @()
+    foreach ($pattern in $Patterns) {
+        $matches += @(Get-ChildItem -LiteralPath $Directory.FullName -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like $pattern })
+        $matches += @(Get-ChildItem -LiteralPath $Directory.FullName -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like $pattern })
+    }
+
+    $first = $matches | Sort-Object FullName | Select-Object -First 1
+    return [ordered]@{
+        label = $Label
+        status = if ($first) { 'found' } else { 'missing' }
+        detail = if ($first) { "Found $($first.Name)" } else { "Expected one of: $($Patterns -join ', ')" }
+        path = if ($first) { $first.FullName } else { $Directory.FullName }
+    }
+}
+
+function Test-ExtractionState {
+    param([string]$BundlePath)
+
+    if ([string]::IsNullOrWhiteSpace($BundlePath)) {
+        throw 'Bundle path is required'
+    }
+    if (-not (Test-Path -LiteralPath $BundlePath -PathType Container)) {
+        throw "Bundle path was not found: $BundlePath"
+    }
+
+    $root = [System.IO.Path]::GetFullPath($BundlePath)
+    $nutanixCentral = Find-FirstDirectory -Root $root -Pattern 'nutanix-central-*'
+    $ncCpaas = Find-FirstDirectory -Root $root -Pattern 'nc-cpaas-*'
+    $frameworkFolder = Find-FirstDirectory -Root $root -Pattern 'lcm_dark_site_bundle*'
+
+    $checks = @(
+        [ordered]@{
+            label = 'Bundle root exists'
+            status = 'found'
+            detail = $root
+            path = $root
+        },
+        [ordered]@{
+            label = 'LCM framework extraction marker'
+            status = if ($frameworkFolder) { 'found' } else { 'warning' }
+            detail = if ($frameworkFolder) { "Found $($frameworkFolder.Name)" } else { 'No lcm_dark_site_bundle* folder detected; this can be acceptable if extracted content is flattened.' }
+            path = if ($frameworkFolder) { $frameworkFolder.FullName } else { $root }
+        },
+        [ordered]@{
+            label = 'Nutanix Central extracted folder'
+            status = if ($nutanixCentral) { 'found' } else { 'missing' }
+            detail = if ($nutanixCentral) { "Found $($nutanixCentral.Name)" } else { 'Expected nutanix-central-* extracted folder' }
+            path = if ($nutanixCentral) { $nutanixCentral.FullName } else { $root }
+        },
+        [ordered]@{
+            label = 'Nutanix Central CPaaS extracted folder'
+            status = if ($ncCpaas) { 'found' } else { 'missing' }
+            detail = if ($ncCpaas) { "Found $($ncCpaas.Name)" } else { 'Expected nc-cpaas-* extracted folder' }
+            path = if ($ncCpaas) { $ncCpaas.FullName } else { $root }
+        },
+        (Test-DirectoryArtifact -Directory $nutanixCentral -Label 'Nutanix Central charts payload' -Patterns @('*charts-bundle*', '*charts*')),
+        (Test-DirectoryArtifact -Directory $nutanixCentral -Label 'Nutanix Central images payload' -Patterns @('*images-bundle*', '*images*')),
+        (Test-DirectoryArtifact -Directory $ncCpaas -Label 'CPaaS charts payload' -Patterns @('*charts-bundle*', '*charts*')),
+        (Test-DirectoryArtifact -Directory $ncCpaas -Label 'CPaaS images payload' -Patterns @('*images-bundle*', '*images*'))
+    )
+
+    $missing = @($checks | Where-Object { $_.status -eq 'missing' })
+    $warnings = @($checks | Where-Object { $_.status -eq 'warning' })
+    $result = [ordered]@{
+        checkedAt = [DateTimeOffset]::UtcNow.ToString('o')
+        root = $root
+        status = if ($missing.Count -gt 0) { 'blocked' } elseif ($warnings.Count -gt 0) { 'warning' } else { 'ready' }
+        missingCount = $missing.Count
+        warningCount = $warnings.Count
+        checks = $checks
+    }
+
+    Save-JsonFile -Path (Get-ExtractionPath) -Body $result
+    return $result
+}
+
+function Invoke-UrlProbe {
+    param(
+        [string]$Url,
+        [int]$TimeoutSec = 8
+    )
+
+    try {
+        $uri = [System.Uri]::new($Url)
+        if ($uri.Scheme -notin @('http', 'https')) {
+            throw 'Only http and https URLs are supported'
+        }
+        if (-not [string]::IsNullOrWhiteSpace($uri.UserInfo)) {
+            throw 'Credentials in URLs are not allowed'
+        }
+
+        try {
+            $result = Invoke-WebRequest -Uri $uri.AbsoluteUri -Method Head -TimeoutSec $TimeoutSec -UseBasicParsing
+        }
+        catch {
+            $result = Invoke-WebRequest -Uri $uri.AbsoluteUri -Method Get -TimeoutSec $TimeoutSec -UseBasicParsing
+        }
+
+        return [ordered]@{
+            url = $uri.AbsoluteUri
+            status = 'reachable'
+            statusCode = [int]$result.StatusCode
+            contentLength = if ($result.Headers['Content-Length']) { [string]$result.Headers['Content-Length'] } else { '' }
+            error = ''
+        }
+    }
+    catch {
+        return [ordered]@{
+            url = $Url
+            status = 'unreachable'
+            statusCode = 0
+            contentLength = ''
+            error = $_.Exception.Message
+        }
+    }
+}
+
+function Test-WebServerState {
+    param(
+        [string]$DarksiteUrl,
+        [object]$Inventory
+    )
+
+    if ([string]::IsNullOrWhiteSpace($DarksiteUrl)) {
+        throw 'Dark-site URL is required'
+    }
+
+    $baseUri = [System.Uri]::new($DarksiteUrl)
+    if ($baseUri.Scheme -notin @('http', 'https')) {
+        throw 'Dark-site URL must use http or https'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($baseUri.UserInfo)) {
+        throw 'Do not include credentials in the dark-site URL'
+    }
+
+    $base = $baseUri.AbsoluteUri
+    if (-not $base.EndsWith('/')) {
+        $base = "$base/"
+    }
+
+    $probes = @()
+    $probes += Invoke-UrlProbe -Url $base
+
+    $bundleNames = @()
+    if ($Inventory -and $Inventory.checks) {
+        foreach ($check in $Inventory.checks) {
+            if ($check.status -eq 'found' -and $check.latest -and $check.latest.name) {
+                $bundleNames += [string]$check.latest.name
+            }
+        }
+    }
+
+    foreach ($name in ($bundleNames | Select-Object -Unique)) {
+        $escaped = [System.Uri]::EscapeDataString($name).Replace('%2F', '/')
+        $probes += Invoke-UrlProbe -Url ([System.Uri]::new([System.Uri]$base, $escaped).AbsoluteUri)
+    }
+
+    $unreachable = @($probes | Where-Object { $_.status -ne 'reachable' })
+    $result = [ordered]@{
+        checkedAt = [DateTimeOffset]::UtcNow.ToString('o')
+        darksiteUrl = $base
+        status = if ($unreachable.Count -eq 0 -and $probes.Count -gt 1) { 'ready' } elseif ($unreachable.Count -eq 0) { 'warning' } else { 'blocked' }
+        checkedCount = $probes.Count
+        unreachableCount = $unreachable.Count
+        probes = $probes
+    }
+
+    Save-JsonFile -Path (Get-WebValidationPath) -Body $result
+    return $result
+}
+
+function Get-EvidenceList {
+    $dir = Get-EvidenceDir
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+        return @()
+    }
+
+    return @(Get-ChildItem -LiteralPath $dir -File -Filter '*.md' |
+        Sort-Object LastWriteTimeUtc -Descending |
+        ForEach-Object {
+            [ordered]@{
+                name = $_.Name
+                path = $_.FullName
+                size = $_.Length
+                createdAt = $_.LastWriteTimeUtc.ToString('o')
+            }
+        })
+}
+
+function New-RunbookMarkdown {
+    param(
+        [object]$Profile,
+        [object]$Inventory,
+        [object]$Extraction,
+        [object]$WebValidation
+    )
+
+    $lines = @(
+        '# LCM Dark Site Runbook',
+        '',
+        "Generated: $([DateTimeOffset]::UtcNow.ToString('o'))",
+        '',
+        '## Profile',
+        "- Site: $([string](Get-JsonValue -Object $Profile -Name 'siteName' -Default ''))",
+        "- Web server platform: $([string](Get-JsonValue -Object $Profile -Name 'webServerPlatform' -Default ''))",
+        "- Local bundle path: $([string](Get-JsonValue -Object $Profile -Name 'bundlePath' -Default ''))",
+        "- Dark-site URL: $([string](Get-JsonValue -Object $Profile -Name 'darksiteUrl' -Default ''))",
+        '',
+        '## Operator Flow',
+        '1. Copy the Nutanix LCM dark-site source bundles to the local bundle path.',
+        '2. Extract the Nutanix Central and CPaaS payloads into the same dark-site folder.',
+        '3. Host the folder from the selected web server platform.',
+        '4. Validate bundle inventory, extraction state, and web reachability from this console.',
+        '5. Point Prism Central LCM dark-site configuration at the validated URL.',
+        '6. Attach the evidence pack to the change record before production use.',
+        '',
+        '## Latest Validation',
+        "- Inventory: $([string](Get-JsonValue -Object $Inventory -Name 'status' -Default 'not_scanned'))",
+        "- Extraction: $([string](Get-JsonValue -Object $Extraction -Name 'status' -Default 'not_checked'))",
+        "- Web server: $([string](Get-JsonValue -Object $WebValidation -Name 'status' -Default 'not_checked'))"
+    )
+
+    return ($lines -join [Environment]::NewLine)
+}
+
+function New-EvidencePack {
+    $profile = Load-Profile
+    $inventory = Load-Inventory
+    $extraction = Load-JsonFile -Path (Get-ExtractionPath)
+    $webValidation = Load-JsonFile -Path (Get-WebValidationPath)
+    $runbook = New-RunbookMarkdown -Profile $profile -Inventory $inventory -Extraction $extraction -WebValidation $webValidation
+
+    $dir = Get-EvidenceDir
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $baseName = "lcm-darksite-evidence-$stamp"
+    $mdPath = Join-Path $dir "$baseName.md"
+    $jsonPath = Join-Path $dir "$baseName.json"
+
+    $markdown = @(
+        '# LCM Dark Site Readiness Evidence',
+        '',
+        "Generated: $([DateTimeOffset]::UtcNow.ToString('o'))",
+        '',
+        '## Summary',
+        "- Site: $([string](Get-JsonValue -Object $profile -Name 'siteName' -Default ''))",
+        "- Inventory status: $([string](Get-JsonValue -Object $inventory -Name 'status' -Default 'not_scanned'))",
+        "- Extraction status: $([string](Get-JsonValue -Object $extraction -Name 'status' -Default 'not_checked'))",
+        "- Web validation status: $([string](Get-JsonValue -Object $webValidation -Name 'status' -Default 'not_checked'))",
+        '',
+        '## Runbook',
+        '',
+        $runbook
+    ) -join [Environment]::NewLine
+
+    $markdown | Set-Content -LiteralPath $mdPath -Encoding utf8
+    Save-JsonFile -Path $jsonPath -Body ([ordered]@{
+        generatedAt = [DateTimeOffset]::UtcNow.ToString('o')
+        profile = $profile
+        inventory = $inventory
+        extraction = $extraction
+        webValidation = $webValidation
+    })
+
+    return [ordered]@{
+        status = 'created'
+        markdown = $mdPath
+        manifest = $jsonPath
+        runbook = $runbook
+        evidence = Get-EvidenceList
+    }
+}
+
 function Handle-ApiRequest {
     param([System.Net.HttpListenerContext]$Context)
 
@@ -274,6 +607,8 @@ function Handle-ApiRequest {
             dataDir = $DataDir
             profileConfigured = (Test-Path -LiteralPath (Get-ProfilePath) -PathType Leaf)
             inventoryAvailable = (Test-Path -LiteralPath (Get-InventoryPath) -PathType Leaf)
+            extractionAvailable = (Test-Path -LiteralPath (Get-ExtractionPath) -PathType Leaf)
+            webValidationAvailable = (Test-Path -LiteralPath (Get-WebValidationPath) -PathType Leaf)
         })
         return $true
     }
@@ -307,6 +642,63 @@ function Handle-ApiRequest {
             Write-JsonResponse -Response $response -Body (Scan-BundleInventory -BundlePath $bundlePath)
             return $true
         }
+    }
+
+    if ($path -eq '/api/extraction') {
+        if ($request.HttpMethod -eq 'GET') {
+            $extraction = Load-JsonFile -Path (Get-ExtractionPath)
+            if ($extraction) {
+                Write-JsonResponse -Response $response -Body $extraction
+            }
+            else {
+                Write-JsonResponse -Response $response -Body ([ordered]@{ status = 'not_checked'; checks = @() })
+            }
+            return $true
+        }
+        if ($request.HttpMethod -eq 'POST') {
+            $payload = Read-JsonRequest -Request $request
+            $bundlePath = [string](Get-JsonValue -Object $payload -Name 'bundlePath')
+            Write-JsonResponse -Response $response -Body (Test-ExtractionState -BundlePath $bundlePath)
+            return $true
+        }
+    }
+
+    if ($path -eq '/api/web-validation') {
+        if ($request.HttpMethod -eq 'GET') {
+            $webValidation = Load-JsonFile -Path (Get-WebValidationPath)
+            if ($webValidation) {
+                Write-JsonResponse -Response $response -Body $webValidation
+            }
+            else {
+                Write-JsonResponse -Response $response -Body ([ordered]@{ status = 'not_checked'; probes = @() })
+            }
+            return $true
+        }
+        if ($request.HttpMethod -eq 'POST') {
+            $payload = Read-JsonRequest -Request $request
+            $darksiteUrl = [string](Get-JsonValue -Object $payload -Name 'darksiteUrl')
+            Write-JsonResponse -Response $response -Body (Test-WebServerState -DarksiteUrl $darksiteUrl -Inventory (Load-Inventory))
+            return $true
+        }
+    }
+
+    if ($path -eq '/api/evidence') {
+        if ($request.HttpMethod -eq 'GET') {
+            Write-JsonResponse -Response $response -Body ([ordered]@{ evidence = Get-EvidenceList })
+            return $true
+        }
+        if ($request.HttpMethod -eq 'POST') {
+            Write-JsonResponse -Response $response -Body (New-EvidencePack)
+            return $true
+        }
+    }
+
+    if ($path -eq '/api/runbook' -and $request.HttpMethod -eq 'GET') {
+        Write-JsonResponse -Response $response -Body ([ordered]@{
+            generatedAt = [DateTimeOffset]::UtcNow.ToString('o')
+            markdown = (New-RunbookMarkdown -Profile (Load-Profile) -Inventory (Load-Inventory) -Extraction (Load-JsonFile -Path (Get-ExtractionPath)) -WebValidation (Load-JsonFile -Path (Get-WebValidationPath)))
+        })
+        return $true
     }
 
     return $false

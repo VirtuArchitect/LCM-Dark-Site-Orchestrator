@@ -264,6 +264,7 @@ input:focus {
   align-items: center;
   gap: 14px;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .helper {
@@ -393,6 +394,11 @@ input:focus {
   border-color: var(--red);
 }
 
+.check-row.warn-row span {
+  border-color: var(--yellow);
+  background: var(--yellow);
+}
+
 .check-row strong {
   display: block;
   font-size: 14px;
@@ -453,10 +459,61 @@ input:focus {
   line-height: 1.8;
 }
 
+.wide-panel {
+  grid-column: span 2;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.runbook-preview {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #dce3f6;
+  background: #090b1a;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.evidence-list {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.evidence-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.evidence-row strong {
+  color: var(--text);
+}
+
 @media (max-width: 1100px) {
   .metrics,
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wide-panel {
+    grid-column: 1 / -1;
   }
 }
 
@@ -496,6 +553,12 @@ input:focus {
   }
 
   .profile-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panel-actions,
+  .evidence-row {
     align-items: stretch;
     flex-direction: column;
   }

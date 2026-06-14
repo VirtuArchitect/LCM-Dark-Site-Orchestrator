@@ -76,11 +76,14 @@ C:\ProgramData\LCM-Dark-Site-Orchestrator\logs\
 C:\ProgramData\LCM-Dark-Site-Orchestrator\evidence\
 ```
 
-The MVP stores the current profile and last inventory scan as local JSON files:
+The MVP stores the current profile and last validation results as local JSON
+files:
 
 ```text
 C:\ProgramData\LCM-Dark-Site-Orchestrator\profile.json
 C:\ProgramData\LCM-Dark-Site-Orchestrator\last-inventory.json
+C:\ProgramData\LCM-Dark-Site-Orchestrator\last-extraction.json
+C:\ProgramData\LCM-Dark-Site-Orchestrator\last-web-validation.json
 ```
 
 ## Bundle Inventory Phase
@@ -99,11 +102,53 @@ jumpserver. It detects these dark-site artifacts:
 For detected bundles, the scan records filename, path, size, modified time,
 version hint, and SHA-256 checksum.
 
+## Extraction Validation Phase
+
+After the dark-site bundles are unpacked, run **Validate Extraction** from the
+dashboard. The console checks for the expected extracted Nutanix Central and
+CPaaS structure, including:
+
+- `nutanix-central-*` extracted folder;
+- `nc-cpaas-*` extracted folder;
+- charts payload under the Nutanix Central folder;
+- images payload under the Nutanix Central folder;
+- charts payload under the CPaaS folder;
+- images payload under the CPaaS folder.
+
+The LCM framework extraction marker is reported as a warning rather than a hard
+blocker because some customer staging layouts flatten that content.
+
+## Web Server Validation Phase
+
+Run **Validate Web Server** after the folder is hosted by nginx, Apache, or IIS.
+The console checks:
+
+- the configured dark-site base URL;
+- each required bundle filename detected by the latest inventory scan.
+
+URLs must use `http` or `https`. Credentials in URLs are rejected. The console
+uses short timeouts so a broken web server does not hang the operator session.
+
+## Evidence and Runbook
+
+The **Create Evidence Pack** action writes a timestamped Markdown evidence file
+and JSON manifest to:
+
+```text
+C:\ProgramData\LCM-Dark-Site-Orchestrator\evidence\
+```
+
+The **Generate Runbook** action creates operator-facing Markdown from the latest
+profile, inventory, extraction, and web-validation state. Attach the evidence
+pack to the implementation or change record before pointing Prism Central LCM at
+the dark-site URL.
+
 ## Security Defaults
 
 - Localhost bind by default.
 - No firewall rule is created automatically.
 - Do not install on Prism Central or CVMs.
 - Keep bundle credentials and evidence under `C:\ProgramData`.
+- Do not include credentials in dark-site URLs.
 - Use Linux web-server validation as the Nutanix-aligned path; Windows/IIS mode
   should be labelled as lab or customer-managed.
