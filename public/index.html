@@ -26,18 +26,20 @@
 
       <nav class="nav">
         <div class="nav-group">Overview</div>
-        <a class="nav-item active" href="#dashboard">Dashboard</a>
-        <a class="nav-item" href="#profiles">Profiles</a>
+        <a class="nav-item active" href="#/dashboard" data-page-link="dashboard">Dashboard</a>
+        <a class="nav-item" href="#/profiles" data-page-link="profiles">Profiles</a>
         <div class="nav-group">Validate</div>
-        <a class="nav-item" href="#bundle-inventory">Bundle Inventory</a>
-        <a class="nav-item" href="#web-server">Web Server</a>
-        <a class="nav-item" href="#extraction-checks">Extraction Checks</a>
+        <a class="nav-item" href="#/bundle-inventory" data-page-link="bundle-inventory">Bundle Inventory</a>
+        <a class="nav-item" href="#/web-server" data-page-link="web-server">Web Server</a>
+        <a class="nav-item" href="#/extraction-checks" data-page-link="extraction-checks">Extraction Checks</a>
         <div class="nav-group">Govern</div>
-        <a class="nav-item" href="#evidence">Evidence Archive</a>
-        <a class="nav-item" href="#evidence">Runbook</a>
-        <a class="nav-item" href="#audit-log">Audit Log</a>
+        <a class="nav-item" href="#/evidence" data-page-link="evidence">Evidence Archive</a>
+        <a class="nav-item" href="#/runbook" data-page-link="runbook">Runbook</a>
+        <a class="nav-item" href="#/audit-log" data-page-link="audit-log">Audit Log</a>
         <div class="nav-group">Admin</div>
-        <a class="nav-item" href="#settings">Settings</a>
+        <a class="nav-item" href="#/rbac" data-page-link="rbac">RBAC</a>
+        <a class="nav-item" href="#/database" data-page-link="database">Database</a>
+        <a class="nav-item" href="#/settings" data-page-link="settings">Settings</a>
       </nav>
 
       <footer class="sidebar-footer">
@@ -46,73 +48,108 @@
       </footer>
     </aside>
 
-    <main class="main" id="dashboard">
+    <main class="main">
       <header class="topbar">
         <div>
-          <h1>Dashboard</h1>
-          <p>Dark-site bundle readiness, web-server validation, and evidence capture</p>
+          <h1 id="page-title">Dashboard</h1>
+          <p id="page-subtitle">Dark-site bundle readiness, web-server validation, and evidence capture</p>
         </div>
         <button class="btn" id="refresh-button">Refresh</button>
       </header>
 
-      <section class="banner">
-        <div class="banner-icon">LCM</div>
-        <div>
-          <h2>Dark-site readiness first</h2>
-          <p>Validate the local repository before Prism Central LCM is pointed at the dark-site source.</p>
-        </div>
-        <button class="btn-primary" id="save-profile-button">Save Profile</button>
+      <section class="page active" data-page="dashboard">
+        <section class="banner">
+          <div class="banner-icon">LCM</div>
+          <div>
+            <h2>Dark-site readiness first</h2>
+            <p>Validate the local repository before Prism Central LCM is pointed at the dark-site source.</p>
+          </div>
+          <button class="btn-primary" id="save-profile-button">Save Profile</button>
+        </section>
+
+        <section class="metrics">
+          <article class="metric-card">
+            <span class="metric-label">Required Bundles</span>
+            <strong>5</strong>
+            <span class="metric-hint">LCM, MSP, compatibility, NC, Marketplace</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Detected</span>
+            <strong id="detected-count">0</strong>
+            <span class="metric-hint" id="detected-hint">Run inventory to populate</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Web Server</span>
+            <strong id="web-server-mode">Pending</strong>
+            <span class="metric-hint" id="web-server-hint">No URL validation yet</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Last Validation</span>
+            <strong id="last-validation">Never</strong>
+            <span class="metric-hint" id="last-validation-hint">No evidence recorded</span>
+          </article>
+        </section>
+
+        <section class="grid">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Readiness Issues</h2>
+                <p>Items blocking evidence capture</p>
+              </div>
+              <span class="badge danger" id="issues-badge">4 blockers</span>
+            </div>
+            <ul class="issue-list" id="issue-list">
+              <li>No dark-site profile has been saved.</li>
+              <li>No local bundle directory has been scanned.</li>
+              <li>No web server URL has been validated.</li>
+              <li>No evidence pack has been generated.</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Validation Flow</h2>
+                <p>Recommended sequence for a new dark-site staging server</p>
+              </div>
+            </div>
+            <div class="check-list">
+              <div class="check-row muted"><span></span><div><strong>1. Profile</strong><small>Set the bundle path and dark-site URL.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>2. Inventory</strong><small>Confirm required source artifacts are staged.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>3. Evidence</strong><small>Create a runbook and evidence archive.</small></div></div>
+            </div>
+          </article>
+        </section>
       </section>
 
-      <section class="profile-panel" id="profiles">
-        <div class="form-grid">
-          <label>
-            <span>Site Name</span>
-            <input id="site-name" type="text" placeholder="London dark-site repo">
-          </label>
-          <label>
-            <span>Dark-site URL</span>
-            <input id="darksite-url" type="url" placeholder="http://webserver/darksite/">
-          </label>
-          <label class="wide">
-            <span>Local Bundle Path</span>
-            <input id="bundle-path" type="text" placeholder="C:\Share\darksite or \\server\share\darksite">
-          </label>
-        </div>
-        <div class="profile-actions">
-          <button class="btn" id="prepare-folder-button">Prepare Bundle Folder</button>
-          <button class="btn-primary" id="scan-button">Scan Bundle Inventory</button>
-          <button class="btn" id="extraction-button">Validate Extraction</button>
-          <button class="btn" id="web-validation-button">Validate Web Server</button>
-          <span class="helper" id="profile-message">Profile values are stored locally on the jumpserver.</span>
-        </div>
+      <section class="page" data-page="profiles">
+        <section class="profile-panel">
+          <div class="form-grid">
+            <label>
+              <span>Site Name</span>
+              <input id="site-name" type="text" placeholder="London dark-site repo">
+            </label>
+            <label>
+              <span>Dark-site URL</span>
+              <input id="darksite-url" type="url" placeholder="http://webserver/darksite/">
+            </label>
+            <label class="wide">
+              <span>Local Bundle Path</span>
+              <input id="bundle-path" type="text" placeholder="C:\Share\darksite or \\server\share\darksite">
+            </label>
+          </div>
+          <div class="profile-actions">
+            <button class="btn" id="prepare-folder-button">Prepare Bundle Folder</button>
+            <button class="btn-primary" id="scan-button">Scan Bundle Inventory</button>
+            <button class="btn" id="extraction-button">Validate Extraction</button>
+            <button class="btn" id="web-validation-button">Validate Web Server</button>
+            <span class="helper" id="profile-message">Profile values are stored locally on the jumpserver.</span>
+          </div>
+        </section>
       </section>
 
-      <section class="metrics">
-        <article class="metric-card">
-          <span class="metric-label">Required Bundles</span>
-          <strong>5</strong>
-          <span class="metric-hint">LCM, MSP, compatibility, NC, Marketplace</span>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Detected</span>
-          <strong id="detected-count">0</strong>
-          <span class="metric-hint" id="detected-hint">Run inventory to populate</span>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Web Server</span>
-          <strong id="web-server-mode">Pending</strong>
-          <span class="metric-hint" id="web-server-hint">No URL validation yet</span>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Last Validation</span>
-          <strong id="last-validation">Never</strong>
-          <span class="metric-hint" id="last-validation-hint">No evidence recorded</span>
-        </article>
-      </section>
-
-      <section class="grid">
-        <article class="panel" id="bundle-inventory">
+      <section class="page" data-page="bundle-inventory">
+        <article class="panel">
           <div class="panel-heading">
             <div>
               <h2>Bundle Inventory</h2>
@@ -128,25 +165,43 @@
             <div class="check-row muted"><span></span><div>Marketplace dark-site bundle</div></div>
           </div>
         </article>
+      </section>
 
-        <article class="panel" id="web-server">
-          <div class="panel-heading">
-            <div>
-              <h2>Web Server Mode</h2>
-              <p>Static hosting path for the dark-site repository</p>
+      <section class="page" data-page="web-server">
+        <section class="grid two-column">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Web Server Mode</h2>
+                <p>Static hosting path for the dark-site repository</p>
+              </div>
             </div>
-          </div>
-          <div class="segmented" role="tablist" aria-label="Web server platform">
-            <button class="segment active" data-mode="linux">Linux</button>
-            <button class="segment" data-mode="windows">Windows / IIS</button>
-          </div>
-          <div class="mode-card" id="mode-card">
-            <h3>Linux web server</h3>
-            <p>Recommended path. Validate nginx or Apache static hosting, permissions, firewall, and the extracted <code>/darksite/</code> folder.</p>
-          </div>
-        </article>
+            <div class="segmented" role="tablist" aria-label="Web server platform">
+              <button class="segment active" data-mode="linux">Linux</button>
+              <button class="segment" data-mode="windows">Windows / IIS</button>
+            </div>
+            <div class="mode-card" id="mode-card">
+              <h3>Linux web server</h3>
+              <p>Recommended path. Validate nginx or Apache static hosting, permissions, firewall, and the extracted <code>/darksite/</code> folder.</p>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Web Reachability</h2>
+                <p>HTTP checks against the configured dark-site URL</p>
+              </div>
+              <span class="badge warn" id="web-validation-badge">Pending</span>
+            </div>
+            <div class="check-list" id="web-validation-list">
+              <div class="check-row muted"><span></span><div>Run web validation after the folder is hosted.</div></div>
+            </div>
+          </article>
+        </section>
+      </section>
 
-        <article class="panel" id="extraction-checks">
+      <section class="page" data-page="extraction-checks">
+        <article class="panel">
           <div class="panel-heading">
             <div>
               <h2>Extraction Checks</h2>
@@ -158,52 +213,109 @@
             <div class="check-row muted"><span></span><div>Run extraction validation after unpacking bundles.</div></div>
           </div>
         </article>
+      </section>
 
-        <article class="panel" id="web-reachability">
+      <section class="page" data-page="evidence">
+        <article class="panel">
           <div class="panel-heading">
             <div>
-              <h2>Web Reachability</h2>
-              <p>HTTP checks against the configured dark-site URL</p>
+              <h2>Evidence Archive</h2>
+              <p>Generated evidence bundles from the latest validation state</p>
             </div>
-            <span class="badge warn" id="web-validation-badge">Pending</span>
+            <button class="btn-primary" id="evidence-button">Create Evidence Pack</button>
           </div>
-          <div class="check-list" id="web-validation-list">
-            <div class="check-row muted"><span></span><div>Run web validation after the folder is hosted.</div></div>
-          </div>
-        </article>
-
-        <article class="panel" id="audit-log">
-          <div class="panel-heading">
-            <div>
-              <h2>Readiness Issues</h2>
-              <p>Items blocking evidence capture</p>
-            </div>
-            <span class="badge danger" id="issues-badge">4 blockers</span>
-          </div>
-          <ul class="issue-list" id="issue-list">
-            <li>No dark-site profile has been saved.</li>
-            <li>No local bundle directory has been scanned.</li>
-            <li>No web server URL has been validated.</li>
-            <li>No evidence pack has been generated.</li>
-          </ul>
-        </article>
-
-        <article class="panel wide-panel" id="evidence">
-          <div class="panel-heading">
-            <div>
-              <h2>Evidence & Runbook</h2>
-              <p>Generate a change-ready evidence bundle from the latest local validation state</p>
-            </div>
-            <div class="panel-actions">
-              <button class="btn" id="runbook-button">Generate Runbook</button>
-              <button class="btn-primary" id="evidence-button">Create Evidence Pack</button>
-            </div>
-          </div>
-          <pre class="runbook-preview" id="runbook-preview">No runbook generated yet.</pre>
           <div class="evidence-list" id="evidence-list">No evidence packs created yet.</div>
         </article>
+      </section>
 
-        <article class="panel wide-panel" id="settings">
+      <section class="page" data-page="runbook">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Runbook</h2>
+              <p>Generate operator-facing implementation notes</p>
+            </div>
+            <button class="btn" id="runbook-button">Generate Runbook</button>
+          </div>
+          <pre class="runbook-preview" id="runbook-preview">No runbook generated yet.</pre>
+        </article>
+      </section>
+
+      <section class="page" data-page="audit-log">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Audit Log</h2>
+              <p>Local operator actions captured by the runtime</p>
+            </div>
+            <span class="badge warn">MVP</span>
+          </div>
+          <div class="check-list audit-list" id="audit-list">
+            <div class="check-row muted"><span></span><div><strong>Audit trail foundation</strong><small>Profile saves, scans, validation runs, and evidence generation should be persisted here next.</small></div></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="page" data-page="rbac">
+        <section class="grid two-column">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>RBAC</h2>
+                <p>Role model planned for shared operations</p>
+              </div>
+              <span class="badge warn">Planned</span>
+            </div>
+            <div class="check-list">
+              <div class="check-row good"><span></span><div><strong>Admin</strong><small>Install, configure, validate, generate evidence, and manage settings.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>Operator</strong><small>Run inventory, extraction, web validation, and evidence actions.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>Viewer</strong><small>Read-only access to readiness, evidence, and audit history.</small></div></div>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Current Enforcement</h2>
+                <p>Local MVP mode</p>
+              </div>
+            </div>
+            <p>Authentication and authorization are not enforced in the current localhost MVP. Enable remote access only on trusted management networks until RBAC is implemented server-side.</p>
+          </article>
+        </section>
+      </section>
+
+      <section class="page" data-page="database">
+        <section class="grid two-column">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Database Backend</h2>
+                <p>Persistence model and future PostgreSQL option</p>
+              </div>
+              <span class="badge warn">File mode</span>
+            </div>
+            <div class="check-list" id="storage-list">
+              <div class="check-row muted"><span></span><div><strong>Current state</strong><small>Loading storage status...</small></div></div>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Recommended Tables</h2>
+                <p>Minimal future schema</p>
+              </div>
+            </div>
+            <div class="check-list">
+              <div class="check-row muted"><span></span><div><strong>users, roles, sessions</strong><small>RBAC and operator identity.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>profiles, validations, evidence</strong><small>Operational state and change evidence.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>audit_events</strong><small>Immutable activity trail.</small></div></div>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section class="page" data-page="settings">
+        <article class="panel">
           <div class="panel-heading">
             <div>
               <h2>Settings</h2>
@@ -213,7 +325,7 @@
           <div class="check-list">
             <div class="check-row muted"><span></span><div><strong>Console URL</strong><small>http://127.0.0.1:5055/</small></div></div>
             <div class="check-row muted"><span></span><div><strong>State directory</strong><small>C:\ProgramData\LCM-Dark-Site-Orchestrator</small></div></div>
-            <div class="check-row muted"><span></span><div><strong>Dark-site web root</strong><small>Use the profile fields above to change the validation target.</small></div></div>
+            <div class="check-row muted"><span></span><div><strong>Dark-site web root</strong><small>Use the profile fields to change the validation target.</small></div></div>
           </div>
         </article>
       </section>

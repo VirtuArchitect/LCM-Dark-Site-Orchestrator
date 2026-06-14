@@ -1,5 +1,8 @@
 const modeCard = document.querySelector('#mode-card');
-const navItems = document.querySelectorAll('.nav-item[href^="#"]');
+const pages = document.querySelectorAll('.page[data-page]');
+const navItems = document.querySelectorAll('.nav-item[data-page-link]');
+const pageTitle = document.querySelector('#page-title');
+const pageSubtitle = document.querySelector('#page-subtitle');
 const segments = document.querySelectorAll('.segment');
 const siteName = document.querySelector('#site-name');
 const darksiteUrl = document.querySelector('#darksite-url');
@@ -30,6 +33,22 @@ const issueList = document.querySelector('#issue-list');
 const issuesBadge = document.querySelector('#issues-badge');
 const runbookPreview = document.querySelector('#runbook-preview');
 const evidenceList = document.querySelector('#evidence-list');
+const auditList = document.querySelector('#audit-list');
+const storageList = document.querySelector('#storage-list');
+
+const pageMeta = {
+  dashboard: ['Dashboard', 'Dark-site bundle readiness, web-server validation, and evidence capture'],
+  profiles: ['Profiles', 'Configure the local dark-site validation target'],
+  'bundle-inventory': ['Bundle Inventory', 'Required LCM dark-site artifacts and checksums'],
+  'web-server': ['Web Server', 'Static hosting mode and URL reachability validation'],
+  'extraction-checks': ['Extraction Checks', 'Extracted Nutanix Central and CPaaS payload readiness'],
+  evidence: ['Evidence Archive', 'Generated evidence bundles for change records'],
+  runbook: ['Runbook', 'Operator-facing implementation notes'],
+  'audit-log': ['Audit Log', 'Local operator activity and runtime events'],
+  rbac: ['RBAC', 'Role model and access-control roadmap'],
+  database: ['Database', 'Storage backend and PostgreSQL roadmap'],
+  settings: ['Settings', 'Local runtime paths and platform options'],
+};
 
 const modes = {
   linux: {
@@ -205,19 +224,55 @@ function renderRunbook(runbook) {
   runbookPreview.textContent = runbook?.markdown || 'No runbook generated yet.';
 }
 
-function setActiveNav(hash) {
-  const fallback = '#dashboard';
+function renderAudit(audit) {
+  const events = audit?.events || [];
+  auditList.innerHTML = events.length
+    ? events.map((event) => `
+      <div class="check-row ${event.status === 'success' || event.status === 'ready' ? 'good' : event.status === 'blocked' ? 'bad' : 'warn-row'}">
+        <span></span>
+        <div>
+          <strong>${event.action || 'event'} - ${event.status || 'info'}</strong>
+          <small>${formatDate(event.timestamp)} - ${event.message || 'No message recorded.'}</small>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="check-row muted"><span></span><div><strong>No audit events yet</strong><small>Run a validation action to create the first event.</small></div></div>';
+}
+
+function renderStorage(storage) {
+  storageList.innerHTML = `
+    <div class="check-row good"><span></span><div><strong>Backend</strong><small>${storage?.backend || 'unknown'} - ${storage?.status || 'unknown'}</small></div></div>
+    <div class="check-row muted"><span></span><div><strong>Data directory</strong><small>${storage?.dataDir || 'not reported'}</small></div></div>
+    <div class="check-row ${storage?.postgres?.configured ? 'good' : 'warn-row'}"><span></span><div><strong>PostgreSQL</strong><small>${storage?.postgres?.note || 'Not configured.'}</small></div></div>
+  `;
+}
+
+function currentPage() {
+  const raw = window.location.hash.replace(/^#\/?/, '');
+  return pageMeta[raw] ? raw : 'dashboard';
+}
+
+function showPage(pageName) {
+  const selected = pageMeta[pageName] ? pageName : 'dashboard';
+  pages.forEach((page) => {
+    page.classList.toggle('active', page.dataset.page === selected);
+  });
+  pageTitle.textContent = pageMeta[selected][0];
+  pageSubtitle.textContent = pageMeta[selected][1];
+  setActiveNav(selected);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setActiveNav(pageName) {
   navItems.forEach((item) => {
-    item.classList.toggle('active', item.getAttribute('href') === (hash || fallback));
+    item.classList.toggle('active', item.dataset.pageLink === pageName);
   });
 }
 
-function scrollToSection(hash) {
-  const target = document.querySelector(hash);
-  if (!target) return;
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  history.replaceState(null, '', hash);
-  setActiveNav(hash);
+function navigateToPage(pageName) {
+  const selected = pageMeta[pageName] ? pageName : 'dashboard';
+  history.replaceState(null, '', `#/${selected}`);
+  showPage(selected);
 }
 
 function renderReadiness() {
@@ -249,18 +304,22 @@ function renderReadiness() {
 
 async function loadState() {
   try {
-    const [profile, inventory, extraction, webValidation, evidence] = await Promise.all([
+    const [profile, inventory, extraction, webValidation, evidence, audit, storage] = await Promise.all([
       api('/api/profile'),
       api('/api/inventory'),
       api('/api/extraction'),
       api('/api/web-validation'),
       api('/api/evidence'),
+      api('/api/audit'),
+      api('/api/storage'),
     ]);
     renderProfile(profile);
     renderInventory(inventory);
     renderExtraction(extraction);
     renderWebValidation(webValidation);
     renderEvidence(evidence);
+    renderAudit(audit);
+    renderStorage(storage);
     setMessage('Profile loaded from local jumpserver state.');
   } catch (error) {
     setMessage(error.message, 'error');
@@ -388,13 +447,13 @@ refreshButton.addEventListener('click', loadState);
 navItems.forEach((item) => {
   item.addEventListener('click', (event) => {
     event.preventDefault();
-    scrollToSection(item.getAttribute('href'));
+    navigateToPage(item.dataset.pageLink);
   });
 });
 
 window.addEventListener('hashchange', () => {
-  setActiveNav(window.location.hash || '#dashboard');
+  showPage(currentPage());
 });
 
 loadState();
-setActiveNav(window.location.hash || '#dashboard');
+showPage(currentPage());

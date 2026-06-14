@@ -114,6 +114,43 @@ function Get-EvidenceDir {
     Join-Path $DataDir 'evidence'
 }
 
+function Get-AuditPath {
+    Join-Path $DataDir 'audit-events.jsonl'
+}
+
+function Write-AuditEvent {
+    param(
+        [string]$Action,
+        [string]$Status = 'info',
+        [string]$Message = '',
+        [object]$Details = $null
+    )
+
+    $event = [ordered]@{
+        timestamp = [DateTimeOffset]::UtcNow.ToString('o')
+        action = $Action
+        status = $Status
+        message = $Message
+        details = $Details
+    }
+    ($event | ConvertTo-Json -Depth 6 -Compress) | Add-Content -LiteralPath (Get-AuditPath) -Encoding utf8
+}
+
+function Get-AuditEvents {
+    param([int]$Limit = 100)
+
+    $path = Get-AuditPath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        return @()
+    }
+
+    return @(Get-Content -LiteralPath $path -Tail $Limit | ForEach-Object {
+        if (-not [string]::IsNullOrWhiteSpace($_)) {
+            $_ | ConvertFrom-Json
+        }
+    } | Sort-Object timestamp -Descending)
+}
+
 function Get-DefaultProfile {
     [ordered]@{
         siteName = ''
@@ -151,6 +188,12 @@ function Save-Profile {
 
     $current.updatedAt = [DateTimeOffset]::UtcNow.ToString('o')
     $current | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Get-ProfilePath) -Encoding utf8
+    Write-AuditEvent -Action 'profile.save' -Status 'success' -Message 'Dark-site profile saved.' -Details ([ordered]@{
+        siteName = $current.siteName
+        webServerPlatform = $current.webServerPlatform
+        bundlePath = $current.bundlePath
+        darksiteUrl = $current.darksiteUrl
+    })
     return $current
 }
 
@@ -293,6 +336,11 @@ function Scan-BundleInventory {
     }
 
     $result | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Get-InventoryPath) -Encoding utf8
+    Write-AuditEvent -Action 'inventory.scan' -Status $result.status -Message "Inventory scan detected $($result.detectedCount) of $($result.requiredCount) required bundle types." -Details ([ordered]@{
+        root = $result.root
+        detectedCount = $result.detectedCount
+        missingCount = $result.missingCount
+    })
     return $result
 }
 
@@ -354,13 +402,18 @@ function Initialize-BundleFolder {
         ) | Set-Content -LiteralPath $markerPath -Encoding utf8
     }
 
-    return [ordered]@{
+    $result = [ordered]@{
         status = 'ready'
         path = $fullPath
         created = -not $existed
         marker = $markerPath
         message = if ($existed) { 'Bundle folder already exists.' } else { 'Bundle folder created.' }
     }
+    Write-AuditEvent -Action 'folder.prepare' -Status 'success' -Message $result.message -Details ([ordered]@{
+        path = $fullPath
+        created = $result.created
+    })
+    return $result
 }
 
 function Find-FirstDirectory {
@@ -466,6 +519,11 @@ function Test-ExtractionState {
     }
 
     Save-JsonFile -Path (Get-ExtractionPath) -Body $result
+    Write-AuditEvent -Action 'extraction.validate' -Status $result.status -Message "Extraction validation completed with $($result.missingCount) missing checks." -Details ([ordered]@{
+        root = $result.root
+        missingCount = $result.missingCount
+        warningCount = $result.warningCount
+    })
     return $result
 }
 
@@ -613,6 +671,11 @@ function Test-WebServerState {
     }
 
     Save-JsonFile -Path (Get-WebValidationPath) -Body $result
+    Write-AuditEvent -Action 'web.validate' -Status $result.status -Message "Web validation checked $($result.checkedCount) URL(s)." -Details ([ordered]@{
+        darksiteUrl = $result.darksiteUrl
+        checkedCount = $result.checkedCount
+        unreachableCount = $result.unreachableCount
+    })
     return $result
 }
 
@@ -709,13 +772,18 @@ function New-EvidencePack {
         webValidation = $webValidation
     })
 
-    return [ordered]@{
+    $result = [ordered]@{
         status = 'created'
         markdown = $mdPath
         manifest = $jsonPath
         runbook = $runbook
         evidence = Get-EvidenceList
     }
+    Write-AuditEvent -Action 'evidence.create' -Status 'success' -Message 'Evidence pack created.' -Details ([ordered]@{
+        markdown = $mdPath
+        manifest = $jsonPath
+    })
+    return $result
 }
 
 function Handle-ApiRequest {
@@ -734,6 +802,28 @@ function Handle-ApiRequest {
             inventoryAvailable = (Test-Path -LiteralPath (Get-InventoryPath) -PathType Leaf)
             extractionAvailable = (Test-Path -LiteralPath (Get-ExtractionPath) -PathType Leaf)
             webValidationAvailable = (Test-Path -LiteralPath (Get-WebValidationPath) -PathType Leaf)
+        })
+        return $true
+    }
+
+    if ($path -eq '/api/storage' -and $request.HttpMethod -eq 'GET') {
+        Write-JsonResponse -Response $response -Body ([ordered]@{
+            backend = 'json-file'
+            status = 'healthy'
+            dataDir = $DataDir
+            auditPath = Get-AuditPath
+            postgres = [ordered]@{
+                configured = $false
+                status = 'not_configured'
+                note = 'PostgreSQL is recommended for a future multi-user deployment, but this MVP uses local JSON files.'
+            }
+        })
+        return $true
+    }
+
+    if ($path -eq '/api/audit' -and $request.HttpMethod -eq 'GET') {
+        Write-JsonResponse -Response $response -Body ([ordered]@{
+            events = Get-AuditEvents -Limit 100
         })
         return $true
     }
