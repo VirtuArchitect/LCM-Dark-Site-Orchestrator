@@ -72,3 +72,11 @@ The first functional release should remain readiness-first:
 
 The tool should not bypass Prism Central or LCM. LCM remains the supported
 update engine.
+
+## Implemented MVP Functions
+
+- Static ZTF-Orchestrator-style dashboard shell.
+- Windows jumpserver runtime and installer scaffolding.
+- Local profile save/load API.
+- Bundle inventory scan API for required dark-site bundle types.
+- SHA-256 checksum capture for detected bundle files.

@@ -212,10 +212,75 @@ h2 {
 }
 
 .metric-card,
-.panel {
+.panel,
+.profile-panel {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.profile-panel {
+  margin: 0 24px 24px;
+  padding: 20px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 7px;
+  color: #cbd3eb;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.form-grid label.wide {
+  grid-column: 1 / -1;
+}
+
+input {
+  min-height: 40px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 12px;
+  color: var(--text);
+  background: #090b1a;
+  font: inherit;
+  font-size: 14px;
+}
+
+input:focus {
+  outline: 1px solid var(--blue-2);
+  border-color: var(--blue-2);
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.helper {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.helper[data-tone="success"] {
+  color: var(--teal);
+}
+
+.helper[data-tone="warning"] {
+  color: var(--yellow);
+}
+
+.helper[data-tone="error"] {
+  color: var(--red);
 }
 
 .metric-card {
@@ -283,6 +348,12 @@ h2 {
   border: 1px solid rgba(248, 113, 113, .3);
 }
 
+.badge.success {
+  color: #b8f7dc;
+  background: rgba(67, 217, 163, .14);
+  border: 1px solid rgba(67, 217, 163, .3);
+}
+
 .check-list,
 .issue-list {
   display: grid;
@@ -291,9 +362,9 @@ h2 {
 
 .check-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  min-height: 44px;
+  min-height: 50px;
   padding: 10px 12px;
   border-radius: 7px;
   background: var(--surface-2);
@@ -306,10 +377,32 @@ h2 {
   height: 14px;
   border: 2px solid var(--faint);
   border-radius: 50%;
+  margin-top: 3px;
 }
 
 .check-row.muted {
   color: #c1c8df;
+}
+
+.check-row.good span {
+  border-color: var(--teal);
+  background: var(--teal);
+}
+
+.check-row.bad span {
+  border-color: var(--red);
+}
+
+.check-row strong {
+  display: block;
+  font-size: 14px;
+}
+
+.check-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .segmented {
@@ -390,9 +483,20 @@ h2 {
   }
 
   .metrics,
-  .grid {
+  .grid,
+  .form-grid {
     grid-template-columns: 1fr;
     margin-left: 18px;
     margin-right: 18px;
+  }
+
+  .profile-panel {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+
+  .profile-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

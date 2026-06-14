@@ -76,6 +76,29 @@ C:\ProgramData\LCM-Dark-Site-Orchestrator\logs\
 C:\ProgramData\LCM-Dark-Site-Orchestrator\evidence\
 ```
 
+The MVP stores the current profile and last inventory scan as local JSON files:
+
+```text
+C:\ProgramData\LCM-Dark-Site-Orchestrator\profile.json
+C:\ProgramData\LCM-Dark-Site-Orchestrator\last-inventory.json
+```
+
+## Bundle Inventory Phase
+
+The first functional phase scans a local or mounted bundle directory from the
+jumpserver. It detects these dark-site artifacts:
+
+| Artifact | Expected filename pattern |
+|---|---|
+| LCM framework bundle | `lcm_dark_site_bundle_*.tar.gz` |
+| MSP LCM bundle | `lcm_msp_*.tar.gz` |
+| Compatibility bundle | `nutanix_compatibility_bundle.tar.gz` |
+| Nutanix Central dark-site bundle | `lcm-darksite-nutanix-central-*.tar.gz` |
+| Marketplace dark-site bundle | `lcm_marketplace_bundle_*.tar.gz` |
+
+For detected bundles, the scan records filename, path, size, modified time,
+version hint, and SHA-256 checksum.
+
 ## Security Defaults
 
 - Localhost bind by default.

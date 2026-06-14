@@ -19,9 +19,9 @@
         </div>
       </div>
 
-      <div class="status-pill">
+      <div class="status-pill" id="status-pill">
         <span class="dot dot-warn"></span>
-        <span>Readiness not validated</span>
+        <span id="status-text">Readiness not validated</span>
       </div>
 
       <nav class="nav">
@@ -52,7 +52,7 @@
           <h1>Dashboard</h1>
           <p>Dark-site bundle readiness, web-server validation, and evidence capture</p>
         </div>
-        <button class="btn">Refresh</button>
+        <button class="btn" id="refresh-button">Refresh</button>
       </header>
 
       <section class="banner">
@@ -61,7 +61,28 @@
           <h2>Dark-site readiness first</h2>
           <p>Validate the local repository before Prism Central LCM is pointed at the dark-site source.</p>
         </div>
-        <button class="btn-primary">Create Profile</button>
+        <button class="btn-primary" id="save-profile-button">Save Profile</button>
+      </section>
+
+      <section class="profile-panel">
+        <div class="form-grid">
+          <label>
+            <span>Site Name</span>
+            <input id="site-name" type="text" placeholder="London dark-site repo">
+          </label>
+          <label>
+            <span>Dark-site URL</span>
+            <input id="darksite-url" type="url" placeholder="http://webserver/darksite/">
+          </label>
+          <label class="wide">
+            <span>Local Bundle Path</span>
+            <input id="bundle-path" type="text" placeholder="C:\Share\darksite or \\server\share\darksite">
+          </label>
+        </div>
+        <div class="profile-actions">
+          <button class="btn-primary" id="scan-button">Scan Bundle Inventory</button>
+          <span class="helper" id="profile-message">Profile values are stored locally on the jumpserver.</span>
+        </div>
       </section>
 
       <section class="metrics">
@@ -72,18 +93,18 @@
         </article>
         <article class="metric-card">
           <span class="metric-label">Detected</span>
-          <strong>0</strong>
-          <span class="metric-hint">Run inventory to populate</span>
+          <strong id="detected-count">0</strong>
+          <span class="metric-hint" id="detected-hint">Run inventory to populate</span>
         </article>
         <article class="metric-card">
           <span class="metric-label">Web Server</span>
-          <strong>Unknown</strong>
-          <span class="metric-hint">Linux recommended, Windows lab-assisted</span>
+          <strong id="web-server-mode">Unknown</strong>
+          <span class="metric-hint" id="web-server-hint">Linux recommended, Windows lab-assisted</span>
         </article>
         <article class="metric-card">
           <span class="metric-label">Last Validation</span>
-          <strong>Never</strong>
-          <span class="metric-hint">No evidence recorded</span>
+          <strong id="last-validation">Never</strong>
+          <span class="metric-hint" id="last-validation-hint">No evidence recorded</span>
         </article>
       </section>
 
@@ -94,14 +115,14 @@
               <h2>Bundle Inventory</h2>
               <p>Expected dark-site source artifacts</p>
             </div>
-            <span class="badge warn">Pending</span>
+            <span class="badge warn" id="inventory-badge">Pending</span>
           </div>
-          <div class="check-list">
-            <div class="check-row muted"><span></span>LCM framework bundle</div>
-            <div class="check-row muted"><span></span>MSP LCM bundle</div>
-            <div class="check-row muted"><span></span>Compatibility bundle</div>
-            <div class="check-row muted"><span></span>Nutanix Central dark-site bundle</div>
-            <div class="check-row muted"><span></span>Marketplace dark-site bundle</div>
+          <div class="check-list" id="inventory-list">
+            <div class="check-row muted"><span></span><div>LCM framework bundle</div></div>
+            <div class="check-row muted"><span></span><div>MSP LCM bundle</div></div>
+            <div class="check-row muted"><span></span><div>Compatibility bundle</div></div>
+            <div class="check-row muted"><span></span><div>Nutanix Central dark-site bundle</div></div>
+            <div class="check-row muted"><span></span><div>Marketplace dark-site bundle</div></div>
           </div>
         </article>
 
@@ -130,7 +151,7 @@
             </div>
             <span class="badge danger">4 blockers</span>
           </div>
-          <ul class="issue-list">
+          <ul class="issue-list" id="issue-list">
             <li>No dark-site profile has been saved.</li>
             <li>No local bundle directory has been scanned.</li>
             <li>No web server URL has been validated.</li>
