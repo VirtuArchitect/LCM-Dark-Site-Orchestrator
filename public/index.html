@@ -26,18 +26,18 @@
 
       <nav class="nav">
         <div class="nav-group">Overview</div>
-        <a class="nav-item active" href="#">Dashboard</a>
-        <a class="nav-item" href="#">Profiles</a>
+        <a class="nav-item active" href="#dashboard">Dashboard</a>
+        <a class="nav-item" href="#profiles">Profiles</a>
         <div class="nav-group">Validate</div>
-        <a class="nav-item" href="#">Bundle Inventory</a>
-        <a class="nav-item" href="#">Web Server</a>
-        <a class="nav-item" href="#">Extraction Checks</a>
+        <a class="nav-item" href="#bundle-inventory">Bundle Inventory</a>
+        <a class="nav-item" href="#web-server">Web Server</a>
+        <a class="nav-item" href="#extraction-checks">Extraction Checks</a>
         <div class="nav-group">Govern</div>
-        <a class="nav-item" href="#">Evidence Archive</a>
-        <a class="nav-item" href="#">Runbook</a>
-        <a class="nav-item" href="#">Audit Log</a>
+        <a class="nav-item" href="#evidence">Evidence Archive</a>
+        <a class="nav-item" href="#evidence">Runbook</a>
+        <a class="nav-item" href="#audit-log">Audit Log</a>
         <div class="nav-group">Admin</div>
-        <a class="nav-item" href="#">Settings</a>
+        <a class="nav-item" href="#settings">Settings</a>
       </nav>
 
       <footer class="sidebar-footer">
@@ -46,7 +46,7 @@
       </footer>
     </aside>
 
-    <main class="main">
+    <main class="main" id="dashboard">
       <header class="topbar">
         <div>
           <h1>Dashboard</h1>
@@ -64,7 +64,7 @@
         <button class="btn-primary" id="save-profile-button">Save Profile</button>
       </section>
 
-      <section class="profile-panel">
+      <section class="profile-panel" id="profiles">
         <div class="form-grid">
           <label>
             <span>Site Name</span>
@@ -112,7 +112,7 @@
       </section>
 
       <section class="grid">
-        <article class="panel">
+        <article class="panel" id="bundle-inventory">
           <div class="panel-heading">
             <div>
               <h2>Bundle Inventory</h2>
@@ -129,7 +129,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="web-server">
           <div class="panel-heading">
             <div>
               <h2>Web Server Mode</h2>
@@ -146,7 +146,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="extraction-checks">
           <div class="panel-heading">
             <div>
               <h2>Extraction Checks</h2>
@@ -159,7 +159,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="web-reachability">
           <div class="panel-heading">
             <div>
               <h2>Web Reachability</h2>
@@ -172,7 +172,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="audit-log">
           <div class="panel-heading">
             <div>
               <h2>Readiness Issues</h2>
@@ -188,7 +188,7 @@
           </ul>
         </article>
 
-        <article class="panel wide-panel">
+        <article class="panel wide-panel" id="evidence">
           <div class="panel-heading">
             <div>
               <h2>Evidence & Runbook</h2>
@@ -201,6 +201,20 @@
           </div>
           <pre class="runbook-preview" id="runbook-preview">No runbook generated yet.</pre>
           <div class="evidence-list" id="evidence-list">No evidence packs created yet.</div>
+        </article>
+
+        <article class="panel wide-panel" id="settings">
+          <div class="panel-heading">
+            <div>
+              <h2>Settings</h2>
+              <p>Local runtime paths and current validation target</p>
+            </div>
+          </div>
+          <div class="check-list">
+            <div class="check-row muted"><span></span><div><strong>Console URL</strong><small>http://127.0.0.1:5055/</small></div></div>
+            <div class="check-row muted"><span></span><div><strong>State directory</strong><small>C:\ProgramData\LCM-Dark-Site-Orchestrator</small></div></div>
+            <div class="check-row muted"><span></span><div><strong>Dark-site web root</strong><small>Use the profile fields above to change the validation target.</small></div></div>
+          </div>
         </article>
       </section>
     </main>

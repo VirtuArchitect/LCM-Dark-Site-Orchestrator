@@ -1,4 +1,5 @@
 const modeCard = document.querySelector('#mode-card');
+const navItems = document.querySelectorAll('.nav-item[href^="#"]');
 const segments = document.querySelectorAll('.segment');
 const siteName = document.querySelector('#site-name');
 const darksiteUrl = document.querySelector('#darksite-url');
@@ -204,6 +205,21 @@ function renderRunbook(runbook) {
   runbookPreview.textContent = runbook?.markdown || 'No runbook generated yet.';
 }
 
+function setActiveNav(hash) {
+  const fallback = '#dashboard';
+  navItems.forEach((item) => {
+    item.classList.toggle('active', item.getAttribute('href') === (hash || fallback));
+  });
+}
+
+function scrollToSection(hash) {
+  const target = document.querySelector(hash);
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  history.replaceState(null, '', hash);
+  setActiveNav(hash);
+}
+
 function renderReadiness() {
   const issues = [];
   if (!siteName.value.trim()) issues.push('No dark-site profile name has been saved.');
@@ -369,4 +385,16 @@ evidenceButton.addEventListener('click', async () => {
 
 refreshButton.addEventListener('click', loadState);
 
+navItems.forEach((item) => {
+  item.addEventListener('click', (event) => {
+    event.preventDefault();
+    scrollToSection(item.getAttribute('href'));
+  });
+});
+
+window.addEventListener('hashchange', () => {
+  setActiveNav(window.location.hash || '#dashboard');
+});
+
 loadState();
+setActiveNav(window.location.hash || '#dashboard');
