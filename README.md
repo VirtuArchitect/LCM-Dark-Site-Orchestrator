@@ -34,6 +34,11 @@ public/index.html
 
 No build step is required for the preview.
 
+For a Windows jumpserver install, see
+[Windows Installation](docs/windows-installation.md). The MVP runtime serves the
+static console on `http://localhost:5055/` and stores operational state under
+`C:\ProgramData\LCM-Dark-Site-Orchestrator`.
+
 ## Planned Build Phases
 
 1. Foundation and dark-site profile model.
@@ -46,6 +51,13 @@ No build step is required for the preview.
 8. Optional safe helper scripts.
 9. Multi-site and multi-domain governance.
 10. Optional integration with ZTF-Orchestrator.
+
+## Distribution Plan
+
+Primary distribution should be a Windows installer because many jumpservers and
+management servers are Windows-based. Secondary distribution options remain
+portable ZIP and Docker/Linux deployment for teams that host the console closer
+to a Linux dark-site web server.
 
 ## MVP Scope
 
