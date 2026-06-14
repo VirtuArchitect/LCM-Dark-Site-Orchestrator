@@ -68,6 +68,46 @@ Build it on a Windows packaging machine with Inno Setup installed. The generated
 installer uses the scheduled-task fallback by default so the MVP can run without
 bundling third-party service-wrapper binaries.
 
+## Optional IIS Dark-Site Web Server
+
+For a base Windows Server 2022 install that will also host the dark-site files,
+run the IIS helper from an elevated PowerShell session:
+
+```powershell
+cd "C:\Tools\LCM-Dark-Site-Orchestrator"
+.\scripts\windows\install-iis-darksite.ps1
+```
+
+The script:
+
+- installs IIS static web-server features and the IIS management console;
+- creates `C:\inetpub\wwwroot\darksite` if it is missing;
+- exposes that folder as `http://<server-name>/darksite/`;
+- adds MIME mappings for `.tar`, `.gz`, `.tgz`, `.json`, `.yaml`, and `.yml`;
+- starts the IIS service;
+- creates an inbound firewall rule for TCP port 80 unless `-SkipFirewallRule` is
+  used.
+
+Directory browsing is disabled by default. Enable it only if the customer
+process requires visible index listings:
+
+```powershell
+.\scripts\windows\install-iis-darksite.ps1 -EnableDirectoryBrowsing
+```
+
+To use a non-default path or port:
+
+```powershell
+.\scripts\windows\install-iis-darksite.ps1 `
+  -PhysicalPath "D:\LCM-DarkSite" `
+  -VirtualPath "darksite" `
+  -Port 8080
+```
+
+After the helper completes, copy or extract the Nutanix LCM dark-site bundles
+into the physical path and set the console's **Dark-site URL** to the reported
+URL.
+
 ## Data Locations
 
 ```text
@@ -150,5 +190,6 @@ the dark-site URL.
 - Do not install on Prism Central or CVMs.
 - Keep bundle credentials and evidence under `C:\ProgramData`.
 - Do not include credentials in dark-site URLs.
+- Use the IIS helper only on a server that is intended to host dark-site files.
 - Use Linux web-server validation as the Nutanix-aligned path; Windows/IIS mode
   should be labelled as lab or customer-managed.

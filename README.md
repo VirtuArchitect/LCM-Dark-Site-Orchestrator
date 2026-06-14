@@ -77,6 +77,7 @@ update engine.
 
 - Static ZTF-Orchestrator-style dashboard shell.
 - Windows jumpserver runtime and installer scaffolding.
+- Optional Windows Server/IIS dark-site web-root bootstrap script.
 - Local profile save/load API.
 - Bundle inventory scan API for required dark-site bundle types.
 - SHA-256 checksum capture for detected bundle files.
