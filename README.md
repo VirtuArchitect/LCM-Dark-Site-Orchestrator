@@ -9,6 +9,9 @@ before Prism Central LCM is configured to use a local dark-site source.
 Unofficial community tooling. This project is not affiliated with or supported
 by Nutanix.
 
+<img width="1563" height="1211" alt="image" src="https://github.com/user-attachments/assets/4c3b348c-9b09-42ee-b7f1-a57cfbc59932" />
+
+
 ## Design Standard
 
 The dashboard intentionally follows the ZTF-Orchestrator visual language:
