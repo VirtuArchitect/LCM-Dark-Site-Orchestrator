@@ -80,7 +80,8 @@ update engine.
 - Optional Windows Server/IIS dark-site web-root bootstrap script.
 - Local profile save/load API.
 - Local bundle staging folder preparation API.
-- Bundle inventory scan API for required dark-site bundle types.
+- Bundle inventory scan API for required dark-site bundle types, including
+  Windows-visible extracted `.tar` folders.
 - SHA-256 checksum capture for detected bundle files.
 - Extracted Nutanix Central and CPaaS folder/payload validation.
 - Dark-site HTTP URL reachability checks for the base URL and detected bundle files.

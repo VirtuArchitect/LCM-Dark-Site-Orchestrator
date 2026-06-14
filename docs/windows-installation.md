@@ -150,14 +150,15 @@ jumpserver. It detects these dark-site artifacts:
 
 | Artifact | Expected filename pattern |
 |---|---|
-| LCM framework bundle | `lcm_dark_site_bundle_*.tar.gz` |
-| MSP LCM bundle | `lcm_msp_*.tar.gz` |
-| Compatibility bundle | `nutanix_compatibility_bundle.tar.gz` |
-| Nutanix Central dark-site bundle | `lcm-darksite-nutanix-central-*.tar.gz` |
-| Marketplace dark-site bundle | `lcm_marketplace_bundle_*.tar.gz` |
+| LCM framework bundle | `lcm_dark_site_bundle_*.tar.gz` or extracted `.tar` folder |
+| MSP LCM bundle | `lcm_msp_*.tar.gz`, `lcm-msp-platform_*.tar.gz`, or extracted `.tar` folder |
+| Compatibility bundle | `nutanix_compatibility_bundle.tar.gz` or extracted `.tar` folder |
+| Nutanix Central dark-site bundle | `lcm-darksite-nutanix-central-*.tar.gz`, `nutanix-central-*`, or extracted folder |
+| Marketplace dark-site bundle | `lcm_marketplace_bundle_*.tar.gz` or extracted `.tar` folder |
 
-For detected bundles, the scan records filename, path, size, modified time,
-version hint, and SHA-256 checksum.
+For detected file bundles, the scan records filename, path, size, modified
+time, version hint, and SHA-256 checksum. Extracted folders are recorded as
+directory artifacts without a checksum.
 
 ## Extraction Validation Phase
 

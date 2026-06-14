@@ -167,10 +167,14 @@ function Match-BundleType {
 
     $lower = $Name.ToLowerInvariant()
     if ($lower -match '^lcm_dark_site_bundle_.*\.tar\.gz$') { return 'lcmFramework' }
-    if ($lower -match '^lcm_msp_.*\.tar\.gz$') { return 'msp' }
+    if ($lower -match '^lcm_dark_site_bundle_.*\.tar$') { return 'lcmFramework' }
+    if ($lower -match '^lcm[-_]msp(?:[-_]platform)?_.*\.tar(?:\.gz)?$') { return 'msp' }
     if ($lower -eq 'nutanix_compatibility_bundle.tar.gz') { return 'compatibility' }
-    if ($lower -match '^lcm-darksite-nutanix-central-.*\.tar\.gz$') { return 'nutanixCentralDarksite' }
-    if ($lower -match '^lcm_marketplace_bundle_.*\.tar\.gz$') { return 'marketplace' }
+    if ($lower -eq 'nutanix_compatibility_bundle.tar') { return 'compatibility' }
+    if ($lower -match '^lcm[-_]darksite[-_]nutanix[-_]central[-_].*\.tar(?:\.gz)?$') { return 'nutanixCentralDarksite' }
+    if ($lower -match '^nutanix-central-\d.*$') { return 'nutanixCentralDarksite' }
+    if ($lower -match '^nutanix central extracted folder$') { return 'nutanixCentralDarksite' }
+    if ($lower -match '^lcm[-_]marketplace[-_]bundle_.*\.tar(?:\.gz)?$') { return 'marketplace' }
     if ($lower -match '^nutanix-central-.*\.tar\.gz$') { return 'nutanixCentral' }
     if ($lower -match '^nc-cpaas-.*\.tar\.gz$') { return 'ncCpaas' }
     return $null
@@ -196,12 +200,33 @@ function New-BundleRecord {
 
     [ordered]@{
         type = $type
+        artifactKind = 'file'
         name = $File.Name
         path = $File.FullName
         size = $File.Length
         modifiedAt = $File.LastWriteTimeUtc.ToString('o')
         version = Find-Version -Name $File.Name
         sha256 = (Get-FileHash -LiteralPath $File.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+}
+
+function New-DirectoryRecord {
+    param([System.IO.DirectoryInfo]$Directory)
+
+    $type = Match-BundleType -Name $Directory.Name
+    if (-not $type) {
+        return $null
+    }
+
+    [ordered]@{
+        type = $type
+        artifactKind = 'directory'
+        name = $Directory.Name
+        path = $Directory.FullName
+        size = 0
+        modifiedAt = $Directory.LastWriteTimeUtc.ToString('o')
+        version = Find-Version -Name $Directory.Name
+        sha256 = ''
     }
 }
 
@@ -218,6 +243,7 @@ function Scan-BundleInventory {
     $root = [System.IO.Path]::GetFullPath($BundlePath)
     $files = Get-ChildItem -LiteralPath $root -File -Recurse -ErrorAction Stop |
         Where-Object { $_.Extension -in @('.gz', '.tar') -or $_.Name -like '*.tar.gz' }
+    $directories = Get-ChildItem -LiteralPath $root -Directory -Recurse -ErrorAction Stop
 
     $records = @()
     foreach ($file in $files) {
@@ -226,13 +252,19 @@ function Scan-BundleInventory {
             $records += $record
         }
     }
+    foreach ($directory in $directories) {
+        $record = New-DirectoryRecord -Directory $directory
+        if ($record) {
+            $records += $record
+        }
+    }
 
     $required = @(
-        [ordered]@{ type = 'lcmFramework'; label = 'LCM framework bundle'; pattern = 'lcm_dark_site_bundle_*.tar.gz' },
-        [ordered]@{ type = 'msp'; label = 'MSP LCM bundle'; pattern = 'lcm_msp_*.tar.gz' },
-        [ordered]@{ type = 'compatibility'; label = 'Compatibility bundle'; pattern = 'nutanix_compatibility_bundle.tar.gz' },
-        [ordered]@{ type = 'nutanixCentralDarksite'; label = 'Nutanix Central dark-site bundle'; pattern = 'lcm-darksite-nutanix-central-*.tar.gz' },
-        [ordered]@{ type = 'marketplace'; label = 'Marketplace dark-site bundle'; pattern = 'lcm_marketplace_bundle_*.tar.gz' }
+        [ordered]@{ type = 'lcmFramework'; label = 'LCM framework bundle'; pattern = 'lcm_dark_site_bundle_*.tar.gz or extracted .tar folder' },
+        [ordered]@{ type = 'msp'; label = 'MSP LCM bundle'; pattern = 'lcm_msp_*.tar.gz or lcm-msp-platform_*.tar.gz' },
+        [ordered]@{ type = 'compatibility'; label = 'Compatibility bundle'; pattern = 'nutanix_compatibility_bundle.tar.gz or extracted .tar folder' },
+        [ordered]@{ type = 'nutanixCentralDarksite'; label = 'Nutanix Central dark-site bundle'; pattern = 'lcm-darksite-nutanix-central-*.tar.gz or nutanix-central-* folder' },
+        [ordered]@{ type = 'marketplace'; label = 'Marketplace dark-site bundle'; pattern = 'lcm_marketplace_bundle_*.tar.gz or extracted .tar folder' }
     )
 
     $checks = @()
