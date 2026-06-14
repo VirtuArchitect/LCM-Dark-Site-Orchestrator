@@ -1,32 +1,62 @@
-# Best Practice Coding Repository Template
+# LCM Dark Site Orchestrator
 
-Use this repository as a starting point for production-grade projects. It
-includes Codex instructions, testing standards, security review guidance, GitHub
-templates, and CI placeholders.
+A readiness and evidence console for Nutanix LCM dark-site preparation.
 
-## Included Standards
+The project is intended to help operators validate bundle presence, extracted
+web-server structure, dark-site URL reachability, and operational readiness
+before Prism Central LCM is configured to use a local dark-site source.
 
-- `AGENTS.md`: Codex project instructions and definition of done.
-- `TESTING_GUIDE.md`: testing strategy and smoke-test requirements.
-- `SECURITY_REVIEW.md`: defensive security review checklist.
-- `CODE_REVIEW.md`: review checklist and output format.
-- `PENTEST_SCOPE_TEMPLATE.md`: authorization template for security testing.
-- `CONTRIBUTING.md`: contribution workflow.
-- `SECURITY.md`: vulnerability reporting policy.
-- `.github/pull_request_template.md`: PR verification checklist.
-- `.github/workflows/ci.yml`: customizable CI skeleton.
+Unofficial community tooling. This project is not affiliated with or supported
+by Nutanix.
 
-## First-Time Setup
+## Design Standard
 
-1. Create a new repository from this template.
-2. Replace placeholder project details in this `README.md`.
-3. Update `AGENTS.md` with the exact install, lint, test, build, and run commands.
-4. Customize `.github/workflows/ci.yml` for the project stack.
-5. Enable branch protection and require CI checks before merge.
-6. Add stack-specific source code under `src/` and tests under `tests/`.
+The dashboard intentionally follows the ZTF-Orchestrator visual language:
 
-## Definition of Done
+- dark enterprise console layout;
+- left navigation rail with grouped operational sections;
+- compact readiness cards and issue-first status panels;
+- Veridian mark as the product badge;
+- the same Veridian favicon used by ZTF-Orchestrator.
 
-Changes are complete only when implementation, tests, smoke testing, and any
-required security review are finished or explicitly documented as blocked.
+Linux web server mode is the recommended, guide-aligned path. Windows/IIS mode
+can be modeled for lab or customer-managed validation, but should be clearly
+labelled because the Nutanix Central guide states Windows-based local web server
+is not supported for the official dark-site workflow.
 
+## Current UI Shell
+
+Open the static dashboard preview:
+
+```text
+public/index.html
+```
+
+No build step is required for the preview.
+
+## Planned Build Phases
+
+1. Foundation and dark-site profile model.
+2. Bundle inventory and checksum capture.
+3. Extraction and folder structure validation.
+4. Linux and Windows web-server validation.
+5. Readiness dashboard.
+6. Evidence pack export.
+7. Guided runbook generation.
+8. Optional safe helper scripts.
+9. Multi-site and multi-domain governance.
+10. Optional integration with ZTF-Orchestrator.
+
+## MVP Scope
+
+The first functional release should remain readiness-first:
+
+- define a dark-site profile;
+- scan a local bundle directory;
+- detect required LCM/MSP/Compatibility/Nutanix Central/Marketplace bundles;
+- validate extracted `darksite` structure;
+- test HTTP reachability of expected paths;
+- export validation evidence.
+
+The tool should not bypass Prism Central or LCM. LCM remains the supported
+update engine.
