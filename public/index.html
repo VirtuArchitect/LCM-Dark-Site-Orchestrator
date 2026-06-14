@@ -165,6 +165,17 @@
             <div class="check-row muted"><span></span><div>Marketplace dark-site bundle</div></div>
           </div>
         </article>
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Inventory History</h2>
+              <p>Timestamped record of detected bundle updates and missing artifacts</p>
+            </div>
+          </div>
+          <div class="check-list" id="inventory-history-list">
+            <div class="check-row muted"><span></span><div><strong>No inventory scans yet</strong><small>Run Scan Bundle Inventory to record the first update snapshot.</small></div></div>
+          </div>
+        </article>
       </section>
 
       <section class="page" data-page="web-server">
@@ -262,9 +273,9 @@
             <div class="panel-heading">
               <div>
                 <h2>RBAC</h2>
-                <p>Role model planned for shared operations</p>
+                <p>Local users and roles for operational ownership</p>
               </div>
-              <span class="badge warn">Planned</span>
+              <span class="badge warn">Local MVP</span>
             </div>
             <div class="check-list">
               <div class="check-row good"><span></span><div><strong>Admin</strong><small>Install, configure, validate, generate evidence, and manage settings.</small></div></div>
@@ -275,11 +286,40 @@
           <article class="panel">
             <div class="panel-heading">
               <div>
-                <h2>Current Enforcement</h2>
-                <p>Local MVP mode</p>
+                <h2>Create User</h2>
+                <p>Persist a local role assignment for audit and readiness ownership</p>
               </div>
             </div>
-            <p>Authentication and authorization are not enforced in the current localhost MVP. Enable remote access only on trusted management networks until RBAC is implemented server-side.</p>
+            <div class="form-grid compact">
+              <label>Username
+                <input id="rbac-username" placeholder="j.smith" />
+              </label>
+              <label>Display Name
+                <input id="rbac-display-name" placeholder="Jane Smith" />
+              </label>
+              <label>Role
+                <select id="rbac-role">
+                  <option value="viewer">viewer</option>
+                  <option value="operator">operator</option>
+                  <option value="admin">admin</option>
+                </select>
+              </label>
+            </div>
+            <div class="profile-actions">
+              <button class="btn-primary" id="create-user-button">Create User</button>
+              <span class="helper" id="rbac-message">Authentication enforcement is planned; users are persisted for role ownership and audit context.</span>
+            </div>
+          </article>
+          <article class="panel wide-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Users</h2>
+                <p>Current local role assignments</p>
+              </div>
+            </div>
+            <div class="check-list" id="user-list">
+              <div class="check-row muted"><span></span><div><strong>Loading users</strong><small>Reading local RBAC state...</small></div></div>
+            </div>
           </article>
         </section>
       </section>
@@ -301,14 +341,17 @@
           <article class="panel">
             <div class="panel-heading">
               <div>
-                <h2>Recommended Tables</h2>
-                <p>Minimal future schema</p>
+                <h2>State Backup / Restore</h2>
+                <p>Local JSON state protection for lab and small-team use</p>
+              </div>
+              <div class="panel-actions">
+                <button class="btn" id="refresh-backups-button">Refresh</button>
+                <button class="btn-primary" id="create-backup-button">Create Backup</button>
               </div>
             </div>
-            <div class="check-list">
-              <div class="check-row muted"><span></span><div><strong>users, roles, sessions</strong><small>RBAC and operator identity.</small></div></div>
-              <div class="check-row muted"><span></span><div><strong>profiles, validations, evidence</strong><small>Operational state and change evidence.</small></div></div>
-              <div class="check-row muted"><span></span><div><strong>audit_events</strong><small>Immutable activity trail.</small></div></div>
+            <p>Backups include profile, inventory, extraction, web validation, users, and audit state. Restore overwrites the local state files from the selected zip.</p>
+            <div class="check-list backup-list" id="backup-list">
+              <div class="check-row muted"><span></span><div><strong>No backups loaded</strong><small>Use Refresh or Create Backup.</small></div></div>
             </div>
           </article>
         </section>

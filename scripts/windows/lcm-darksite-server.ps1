@@ -118,6 +118,18 @@ function Get-AuditPath {
     Join-Path $DataDir 'audit-events.jsonl'
 }
 
+function Get-UsersPath {
+    Join-Path $DataDir 'users.json'
+}
+
+function Get-InventoryHistoryPath {
+    Join-Path $DataDir 'inventory-history.jsonl'
+}
+
+function Get-BackupDir {
+    Join-Path $DataDir 'backups'
+}
+
 function Write-AuditEvent {
     param(
         [string]$Action,
@@ -149,6 +161,175 @@ function Get-AuditEvents {
             $_ | ConvertFrom-Json
         }
     } | Sort-Object timestamp -Descending)
+}
+
+function Add-JsonLine {
+    param(
+        [string]$Path,
+        [object]$Body
+    )
+
+    ($Body | ConvertTo-Json -Depth 8 -Compress) | Add-Content -LiteralPath $Path -Encoding utf8
+}
+
+function Get-JsonLines {
+    param(
+        [string]$Path,
+        [int]$Limit = 100
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return @()
+    }
+
+    return @(Get-Content -LiteralPath $Path -Tail $Limit | ForEach-Object {
+        if (-not [string]::IsNullOrWhiteSpace($_)) {
+            $_ | ConvertFrom-Json
+        }
+    } | Sort-Object timestamp -Descending)
+}
+
+function ConvertTo-PlainArray {
+    param([object]$Items)
+
+    $result = @()
+    foreach ($item in @($Items)) {
+        if ($item -and $item.PSObject.Properties['value'] -and $item.PSObject.Properties['Count']) {
+            foreach ($nested in @($item.value)) {
+                $result += $nested
+            }
+        }
+        else {
+            $result += $item
+        }
+    }
+    return $result
+}
+
+function Load-Users {
+    $path = Get-UsersPath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        $defaultUsers = @(
+            [ordered]@{
+                id = 'admin'
+                username = 'admin'
+                displayName = 'Local Administrator'
+                role = 'admin'
+                status = 'active'
+                createdAt = [DateTimeOffset]::UtcNow.ToString('o')
+            }
+        )
+        Save-JsonFile -Path $path -Body $defaultUsers
+        return $defaultUsers
+    }
+    return ConvertTo-PlainArray -Items (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json)
+}
+
+function Save-Users {
+    param([object[]]$Users)
+    Save-JsonFile -Path (Get-UsersPath) -Body @(ConvertTo-PlainArray -Items $Users)
+}
+
+function New-LocalUser {
+    param([object]$Payload)
+
+    $username = [string](Get-JsonValue -Object $Payload -Name 'username')
+    $displayName = [string](Get-JsonValue -Object $Payload -Name 'displayName')
+    $role = [string](Get-JsonValue -Object $Payload -Name 'role' -Default 'viewer')
+
+    if ([string]::IsNullOrWhiteSpace($username)) {
+        throw 'Username is required'
+    }
+    if ($role -notin @('admin', 'operator', 'viewer')) {
+        throw 'Role must be admin, operator, or viewer'
+    }
+
+    $users = @(Load-Users)
+    if (@($users | Where-Object { $_.username -eq $username }).Count -gt 0) {
+        throw "User already exists: $username"
+    }
+
+    $user = [ordered]@{
+        id = [guid]::NewGuid().ToString('N')
+        username = $username
+        displayName = if ([string]::IsNullOrWhiteSpace($displayName)) { $username } else { $displayName }
+        role = $role
+        status = 'active'
+        createdAt = [DateTimeOffset]::UtcNow.ToString('o')
+    }
+    Save-Users -Users @($users + $user)
+    Write-AuditEvent -Action 'user.create' -Status 'success' -Message "Local RBAC user created: $username" -Details ([ordered]@{
+        username = $username
+        role = $role
+    })
+    return $user
+}
+
+function Get-BackupList {
+    $dir = Get-BackupDir
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+        return @()
+    }
+
+    return @(Get-ChildItem -LiteralPath $dir -File -Filter '*.zip' |
+        Sort-Object LastWriteTimeUtc -Descending |
+        ForEach-Object {
+            [ordered]@{
+                name = $_.Name
+                path = $_.FullName
+                size = $_.Length
+                createdAt = $_.LastWriteTimeUtc.ToString('o')
+            }
+        })
+}
+
+function New-StateBackup {
+    $dir = Get-BackupDir
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backupPath = Join-Path $dir "lcm-darksite-state-$stamp.zip"
+    $items = @(
+        (Get-ProfilePath),
+        (Get-InventoryPath),
+        (Get-InventoryHistoryPath),
+        (Get-ExtractionPath),
+        (Get-WebValidationPath),
+        (Get-AuditPath),
+        (Get-UsersPath)
+    ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+
+    if ($items.Count -eq 0) {
+        throw 'No state files are available to back up'
+    }
+
+    Compress-Archive -LiteralPath $items -DestinationPath $backupPath -Force
+    Write-AuditEvent -Action 'state.backup' -Status 'success' -Message 'Local state backup created.' -Details ([ordered]@{ backup = $backupPath })
+    return [ordered]@{
+        status = 'created'
+        backup = $backupPath
+        backups = @(Get-BackupList)
+    }
+}
+
+function Restore-StateBackup {
+    param([string]$Name)
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        throw 'Backup name is required'
+    }
+    $leaf = [System.IO.Path]::GetFileName($Name)
+    $backupPath = Join-Path (Get-BackupDir) $leaf
+    if (-not (Test-Path -LiteralPath $backupPath -PathType Leaf)) {
+        throw "Backup was not found: $leaf"
+    }
+
+    Expand-Archive -LiteralPath $backupPath -DestinationPath $DataDir -Force
+    Write-AuditEvent -Action 'state.restore' -Status 'success' -Message 'Local state backup restored.' -Details ([ordered]@{ backup = $backupPath })
+    return [ordered]@{
+        status = 'restored'
+        backup = $backupPath
+        backups = @(Get-BackupList)
+    }
 }
 
 function Get-DefaultProfile {
@@ -336,6 +517,15 @@ function Scan-BundleInventory {
     }
 
     $result | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Get-InventoryPath) -Encoding utf8
+    Add-JsonLine -Path (Get-InventoryHistoryPath) -Body ([ordered]@{
+        timestamp = $result.scannedAt
+        root = $result.root
+        status = $result.status
+        detectedCount = $result.detectedCount
+        missingCount = $result.missingCount
+        checks = $result.checks
+        bundles = $result.bundles
+    })
     Write-AuditEvent -Action 'inventory.scan' -Status $result.status -Message "Inventory scan detected $($result.detectedCount) of $($result.requiredCount) required bundle types." -Details ([ordered]@{
         root = $result.root
         detectedCount = $result.detectedCount
@@ -823,8 +1013,47 @@ function Handle-ApiRequest {
 
     if ($path -eq '/api/audit' -and $request.HttpMethod -eq 'GET') {
         Write-JsonResponse -Response $response -Body ([ordered]@{
-            events = Get-AuditEvents -Limit 100
+            events = @(Get-AuditEvents -Limit 100)
         })
+        return $true
+    }
+
+    if ($path -eq '/api/users') {
+        if ($request.HttpMethod -eq 'GET') {
+            Write-JsonResponse -Response $response -Body ([ordered]@{
+                users = @(Load-Users)
+                roles = @('admin', 'operator', 'viewer')
+                enforced = $false
+                note = 'Users are persisted for RBAC planning. Authentication and authorization are not enforced in the localhost MVP.'
+            })
+            return $true
+        }
+        if ($request.HttpMethod -eq 'POST') {
+            $payload = Read-JsonRequest -Request $request
+            $user = New-LocalUser -Payload $payload
+            Write-JsonResponse -Response $response -Body ([ordered]@{
+                user = $user
+                users = @(Load-Users)
+            })
+            return $true
+        }
+    }
+
+    if ($path -eq '/api/backups') {
+        if ($request.HttpMethod -eq 'GET') {
+            Write-JsonResponse -Response $response -Body ([ordered]@{ backups = @(Get-BackupList) })
+            return $true
+        }
+        if ($request.HttpMethod -eq 'POST') {
+            Write-JsonResponse -Response $response -Body (New-StateBackup)
+            return $true
+        }
+    }
+
+    if ($path -eq '/api/restore' -and $request.HttpMethod -eq 'POST') {
+        $payload = Read-JsonRequest -Request $request
+        $name = [string](Get-JsonValue -Object $payload -Name 'name')
+        Write-JsonResponse -Response $response -Body (Restore-StateBackup -Name $name)
         return $true
     }
 
@@ -866,6 +1095,13 @@ function Handle-ApiRequest {
             Write-JsonResponse -Response $response -Body (Scan-BundleInventory -BundlePath $bundlePath)
             return $true
         }
+    }
+
+    if ($path -eq '/api/inventory-history' -and $request.HttpMethod -eq 'GET') {
+        Write-JsonResponse -Response $response -Body ([ordered]@{
+            scans = @(Get-JsonLines -Path (Get-InventoryHistoryPath) -Limit 50)
+        })
+        return $true
     }
 
     if ($path -eq '/api/extraction') {

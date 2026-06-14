@@ -35,6 +35,16 @@ const runbookPreview = document.querySelector('#runbook-preview');
 const evidenceList = document.querySelector('#evidence-list');
 const auditList = document.querySelector('#audit-list');
 const storageList = document.querySelector('#storage-list');
+const inventoryHistoryList = document.querySelector('#inventory-history-list');
+const userList = document.querySelector('#user-list');
+const rbacUsername = document.querySelector('#rbac-username');
+const rbacDisplayName = document.querySelector('#rbac-display-name');
+const rbacRole = document.querySelector('#rbac-role');
+const createUserButton = document.querySelector('#create-user-button');
+const rbacMessage = document.querySelector('#rbac-message');
+const backupList = document.querySelector('#backup-list');
+const createBackupButton = document.querySelector('#create-backup-button');
+const refreshBackupsButton = document.querySelector('#refresh-backups-button');
 
 const pageMeta = {
   dashboard: ['Dashboard', 'Dark-site bundle readiness, web-server validation, and evidence capture'],
@@ -66,6 +76,21 @@ let lastInventory = { status: 'not_scanned', checks: [] };
 let lastExtraction = { status: 'not_checked', checks: [] };
 let lastWebValidation = { status: 'not_checked', probes: [] };
 let lastEvidence = { evidence: [] };
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
+function asArray(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
 
 function setMessage(message, tone = 'muted') {
   profileMessage.textContent = message;
@@ -225,14 +250,14 @@ function renderRunbook(runbook) {
 }
 
 function renderAudit(audit) {
-  const events = audit?.events || [];
+  const events = asArray(audit?.events);
   auditList.innerHTML = events.length
     ? events.map((event) => `
       <div class="check-row ${event.status === 'success' || event.status === 'ready' ? 'good' : event.status === 'blocked' ? 'bad' : 'warn-row'}">
         <span></span>
         <div>
-          <strong>${event.action || 'event'} - ${event.status || 'info'}</strong>
-          <small>${formatDate(event.timestamp)} - ${event.message || 'No message recorded.'}</small>
+          <strong>${escapeHtml(event.action || 'event')} - ${escapeHtml(event.status || 'info')}</strong>
+          <small>${escapeHtml(formatDate(event.timestamp))} - ${escapeHtml(event.message || 'No message recorded.')}</small>
         </div>
       </div>
     `).join('')
@@ -241,10 +266,68 @@ function renderAudit(audit) {
 
 function renderStorage(storage) {
   storageList.innerHTML = `
-    <div class="check-row good"><span></span><div><strong>Backend</strong><small>${storage?.backend || 'unknown'} - ${storage?.status || 'unknown'}</small></div></div>
-    <div class="check-row muted"><span></span><div><strong>Data directory</strong><small>${storage?.dataDir || 'not reported'}</small></div></div>
-    <div class="check-row ${storage?.postgres?.configured ? 'good' : 'warn-row'}"><span></span><div><strong>PostgreSQL</strong><small>${storage?.postgres?.note || 'Not configured.'}</small></div></div>
+    <div class="check-row good"><span></span><div><strong>Backend</strong><small>${escapeHtml(storage?.backend || 'unknown')} - ${escapeHtml(storage?.status || 'unknown')}</small></div></div>
+    <div class="check-row muted"><span></span><div><strong>Data directory</strong><small>${escapeHtml(storage?.dataDir || 'not reported')}</small></div></div>
+    <div class="check-row ${storage?.postgres?.configured ? 'good' : 'warn-row'}"><span></span><div><strong>PostgreSQL</strong><small>${escapeHtml(storage?.postgres?.note || 'Not configured.')}</small></div></div>
   `;
+}
+
+function renderUsers(data) {
+  const users = asArray(data?.users);
+  userList.innerHTML = users.length
+    ? users.map((user) => `
+      <div class="check-row ${user.status === 'active' ? 'good' : 'muted'}">
+        <span></span>
+        <div>
+          <strong>${escapeHtml(user.displayName || user.username)}</strong>
+          <small>${escapeHtml(user.username)} - ${escapeHtml(user.role || 'viewer')} - ${escapeHtml(user.status || 'active')} - created ${escapeHtml(formatDate(user.createdAt))}</small>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="check-row muted"><span></span><div><strong>No users found</strong><small>Create the first local user assignment.</small></div></div>';
+}
+
+function renderBackups(data) {
+  const backups = asArray(data?.backups);
+  backupList.innerHTML = backups.length
+    ? backups.map((backup) => `
+      <div class="check-row good">
+        <span></span>
+        <div>
+          <strong>${escapeHtml(backup.name)}</strong>
+          <small>${escapeHtml(formatDate(backup.createdAt))} - ${Math.ceil((backup.size || 0) / 1024)} KB</small>
+        </div>
+        <button class="btn row-action" data-restore-backup="${escapeHtml(backup.name)}">Restore</button>
+      </div>
+    `).join('')
+    : '<div class="check-row muted"><span></span><div><strong>No backups yet</strong><small>Create a backup after the profile and validation state are populated.</small></div></div>';
+}
+
+function renderInventoryHistory(data) {
+  const scans = asArray(data?.scans);
+  inventoryHistoryList.innerHTML = scans.length
+    ? scans.map((scan) => `
+      <div class="check-row ${scan.status === 'ready' ? 'good' : 'bad'}">
+        <span></span>
+        <div>
+          <strong>${escapeHtml(formatDate(scan.timestamp))} - ${escapeHtml(scan.status || 'unknown')}</strong>
+          <small>${escapeHtml(scan.root || '')} - ${Number(scan.detectedCount || 0)} detected, ${Number(scan.missingCount || 0)} missing</small>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="check-row muted"><span></span><div><strong>No inventory scans yet</strong><small>Run Scan Bundle Inventory to record the first update snapshot.</small></div></div>';
+}
+
+async function refreshAudit() {
+  renderAudit(await api('/api/audit'));
+}
+
+async function refreshBackups() {
+  renderBackups(await api('/api/backups'));
+}
+
+async function refreshInventoryHistory() {
+  renderInventoryHistory(await api('/api/inventory-history'));
 }
 
 function currentPage() {
@@ -304,7 +387,7 @@ function renderReadiness() {
 
 async function loadState() {
   try {
-    const [profile, inventory, extraction, webValidation, evidence, audit, storage] = await Promise.all([
+    const [profile, inventory, extraction, webValidation, evidence, audit, storage, users, backups, inventoryHistory] = await Promise.all([
       api('/api/profile'),
       api('/api/inventory'),
       api('/api/extraction'),
@@ -312,6 +395,9 @@ async function loadState() {
       api('/api/evidence'),
       api('/api/audit'),
       api('/api/storage'),
+      api('/api/users'),
+      api('/api/backups'),
+      api('/api/inventory-history'),
     ]);
     renderProfile(profile);
     renderInventory(inventory);
@@ -320,6 +406,9 @@ async function loadState() {
     renderEvidence(evidence);
     renderAudit(audit);
     renderStorage(storage);
+    renderUsers(users);
+    renderBackups(backups);
+    renderInventoryHistory(inventoryHistory);
     setMessage('Profile loaded from local jumpserver state.');
   } catch (error) {
     setMessage(error.message, 'error');
@@ -349,6 +438,7 @@ saveProfileButton.addEventListener('click', async () => {
     });
     renderProfile(profile);
     setMessage('Profile saved locally.');
+    await refreshAudit();
   } catch (error) {
     setMessage(error.message, 'error');
   }
@@ -366,6 +456,7 @@ prepareFolderButton.addEventListener('click', async () => {
     bundlePath.value = folder.path || profile.bundlePath;
     setMessage(`${folder.message} Copy or extract the Nutanix dark-site bundles there, then run inventory.`, 'success');
     renderReadiness();
+    await refreshAudit();
   } catch (error) {
     setMessage(error.message, 'error');
   }
@@ -382,6 +473,7 @@ scanButton.addEventListener('click', async () => {
     });
     renderInventory(inventory);
     setMessage(`Inventory scan complete: ${inventory.detectedCount}/${inventory.requiredCount} required bundle types found.`, inventory.status === 'ready' ? 'success' : 'warning');
+    await Promise.all([refreshAudit(), refreshInventoryHistory()]);
   } catch (error) {
     setMessage(error.message, 'error');
   }
@@ -398,6 +490,7 @@ extractionButton.addEventListener('click', async () => {
     });
     renderExtraction(extraction);
     setMessage(`Extraction validation complete: ${extraction.status}.`, extraction.status === 'ready' ? 'success' : 'warning');
+    await refreshAudit();
   } catch (error) {
     setMessage(error.message, 'error');
   }
@@ -414,6 +507,7 @@ webValidationButton.addEventListener('click', async () => {
     });
     renderWebValidation(validation);
     setMessage(`Web validation complete: ${validation.status}.`, validation.status === 'ready' ? 'success' : 'warning');
+    await refreshAudit();
   } catch (error) {
     setMessage(error.message, 'error');
   }
@@ -437,6 +531,62 @@ evidenceButton.addEventListener('click', async () => {
     renderEvidence(evidence);
     renderRunbook({ markdown: evidence.runbook });
     setMessage('Evidence pack created in the local data directory.', 'success');
+    await refreshAudit();
+  } catch (error) {
+    setMessage(error.message, 'error');
+  }
+});
+
+createUserButton.addEventListener('click', async () => {
+  try {
+    const users = await api('/api/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: rbacUsername.value.trim(),
+        displayName: rbacDisplayName.value.trim(),
+        role: rbacRole.value,
+      }),
+    });
+    renderUsers(users);
+    rbacUsername.value = '';
+    rbacDisplayName.value = '';
+    rbacMessage.textContent = 'User created and audit event recorded.';
+    rbacMessage.dataset.tone = 'success';
+    await refreshAudit();
+  } catch (error) {
+    rbacMessage.textContent = error.message;
+    rbacMessage.dataset.tone = 'error';
+  }
+});
+
+createBackupButton.addEventListener('click', async () => {
+  try {
+    setMessage('Creating local state backup...');
+    const result = await api('/api/backups', { method: 'POST' });
+    renderBackups(result);
+    setMessage('Local state backup created.', 'success');
+    await refreshAudit();
+  } catch (error) {
+    setMessage(error.message, 'error');
+  }
+});
+
+refreshBackupsButton.addEventListener('click', refreshBackups);
+
+backupList.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-restore-backup]');
+  if (!button) return;
+  const name = button.dataset.restoreBackup;
+  const confirmed = window.confirm(`Restore backup "${name}"? This overwrites the current local state files.`);
+  if (!confirmed) return;
+  try {
+    setMessage('Restoring local state backup...');
+    await api('/api/restore', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+    await loadState();
+    setMessage('Local state backup restored.', 'success');
   } catch (error) {
     setMessage(error.message, 'error');
   }
