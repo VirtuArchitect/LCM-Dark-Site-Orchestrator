@@ -56,7 +56,10 @@
           <h1 id="page-title">Dashboard</h1>
           <p id="page-subtitle">Dark-site bundle readiness, web-server validation, and evidence capture</p>
         </div>
-        <button class="btn" id="refresh-button">Refresh</button>
+        <div class="topbar-actions">
+          <span class="topbar-status" id="refresh-status" aria-live="polite"></span>
+          <button class="btn" id="refresh-button" type="button">Refresh</button>
+        </div>
       </header>
 
       <section class="page active" data-page="dashboard">

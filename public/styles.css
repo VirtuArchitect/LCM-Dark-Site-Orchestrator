@@ -176,6 +176,27 @@ h2 {
   font-size: 13px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-status {
+  min-width: 112px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.topbar-status[data-tone="success"] {
+  color: var(--teal);
+}
+
+.topbar-status[data-tone="error"] {
+  color: var(--red);
+}
+
 .btn,
 .btn-primary {
   min-height: 38px;
@@ -190,6 +211,12 @@ h2 {
 .btn-primary {
   border-color: var(--blue-2);
   background: var(--blue);
+}
+
+.btn[disabled],
+.btn-primary[disabled] {
+  cursor: wait;
+  opacity: .65;
 }
 
 .banner {

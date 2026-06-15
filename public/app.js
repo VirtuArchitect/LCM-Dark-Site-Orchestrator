@@ -15,6 +15,7 @@ const webValidationButton = document.querySelector('#web-validation-button');
 const runbookButton = document.querySelector('#runbook-button');
 const evidenceButton = document.querySelector('#evidence-button');
 const refreshButton = document.querySelector('#refresh-button');
+const refreshStatus = document.querySelector('#refresh-status');
 const profileMessage = document.querySelector('#profile-message');
 const statusText = document.querySelector('#status-text');
 const detectedCount = document.querySelector('#detected-count');
@@ -113,6 +114,11 @@ function asArray(value) {
 function setMessage(message, tone = 'muted') {
   profileMessage.textContent = message;
   profileMessage.dataset.tone = tone;
+}
+
+function setRefreshStatus(message, tone = 'muted') {
+  refreshStatus.textContent = message;
+  refreshStatus.dataset.tone = tone;
 }
 
 function selectedProfile() {
@@ -370,10 +376,60 @@ function renderHelperScripts(data) {
           <strong>${escapeHtml(script.title || script.name)}</strong>
           <small>${escapeHtml(script.platform || 'manual')} - ${escapeHtml(script.safety || '')}</small>
         </div>
-        <a class="btn row-action" href="${escapeHtml(script.downloadUrl || '#')}">Download</a>
+        <button class="btn row-action" type="button" data-helper-download="${escapeHtml(script.name || '')}" data-helper-url="${escapeHtml(script.downloadUrl || '')}">Download</button>
       </div>
     `).join('')
     : '<div class="check-row muted"><span></span><div><strong>No helper scripts found</strong><small>Approved script files were not found in scripts/windows.</small></div></div>';
+}
+
+function filenameFromContentDisposition(value, fallback) {
+  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(value || '');
+  if (!match) return fallback;
+  try {
+    return decodeURIComponent(match[1].replace(/"$/g, ''));
+  } catch {
+    return match[1].replace(/"$/g, '') || fallback;
+  }
+}
+
+async function downloadHelperScript(button) {
+  const downloadUrl = button.dataset.helperUrl;
+  const fallbackName = button.dataset.helperDownload || 'helper-script.ps1';
+  if (!downloadUrl) {
+    setRefreshStatus('Missing script URL', 'error');
+    return;
+  }
+
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Downloading...';
+  setRefreshStatus('Downloading script...');
+
+  try {
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || `Download failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const filename = filenameFromContentDisposition(response.headers.get('Content-Disposition'), fallbackName);
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    setRefreshStatus(`Downloaded ${filename}`, 'success');
+    await refreshAudit();
+  } catch (error) {
+    setRefreshStatus(error.message, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
 }
 
 async function refreshAudit() {
@@ -449,6 +505,8 @@ function renderReadiness() {
 
 async function loadState() {
   try {
+    setRefreshStatus('Refreshing...');
+    refreshButton.disabled = true;
     const [profile, inventory, extraction, webValidation, evidence, audit, storage, users, backups, inventoryHistory, governance, helperScripts] = await Promise.all([
       api('/api/profile'),
       api('/api/inventory'),
@@ -476,8 +534,12 @@ async function loadState() {
     renderGovernance(governance);
     renderHelperScripts(helperScripts);
     setMessage('Profile loaded from local jumpserver state.');
+    setRefreshStatus('Refreshed', 'success');
   } catch (error) {
     setMessage(error.message, 'error');
+    setRefreshStatus(error.message, 'error');
+  } finally {
+    refreshButton.disabled = false;
   }
 }
 
@@ -707,6 +769,12 @@ backupList.addEventListener('click', async (event) => {
 });
 
 refreshButton.addEventListener('click', loadState);
+
+helperScriptList.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-helper-download]');
+  if (!button) return;
+  downloadHelperScript(button);
+});
 
 navItems.forEach((item) => {
   item.addEventListener('click', (event) => {
