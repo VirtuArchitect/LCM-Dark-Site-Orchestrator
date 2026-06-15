@@ -578,6 +578,7 @@ function Match-BundleType {
     if ($lower -eq 'nutanix_compatibility_bundle.tar.gz') { return 'compatibility' }
     if ($lower -eq 'nutanix_compatibility_bundle.tar') { return 'compatibility' }
     if ($lower -match '^lcm[-_]darksite[-_]nutanix[-_]central[-_].*\.tar(?:\.gz)?$') { return 'nutanixCentralDarksite' }
+    if ($lower -match '^lcm[-_]nutanix[-_]central[-_].*\.tar(?:\.gz)?$') { return 'nutanixCentralDarksite' }
     if ($lower -match '^nutanix-central-\d.*$') { return 'nutanixCentralDarksite' }
     if ($lower -match '^nutanix central extracted folder$') { return 'nutanixCentralDarksite' }
     if ($lower -match '^lcm[-_]marketplace[-_]bundle_.*\.tar(?:\.gz)?$') { return 'marketplace' }

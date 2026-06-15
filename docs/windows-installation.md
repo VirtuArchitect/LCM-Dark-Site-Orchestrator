@@ -182,7 +182,7 @@ jumpserver. It detects these dark-site artifacts:
 | LCM framework bundle | `lcm_dark_site_bundle_*.tar.gz` or extracted `.tar` folder |
 | MSP LCM bundle | `lcm_msp_*.tar.gz`, `lcm-msp-platform_*.tar.gz`, or extracted `.tar` folder |
 | Compatibility bundle | `nutanix_compatibility_bundle.tar.gz` or extracted `.tar` folder |
-| Nutanix Central dark-site bundle | `lcm-darksite-nutanix-central-*.tar.gz`, `nutanix-central-*`, or extracted folder |
+| Nutanix Central dark-site bundle | `lcm-darksite-nutanix-central-*.tar.gz`, `lcm_nutanix_central_*.tar.gz`, `nutanix-central-*`, or extracted folder |
 | Marketplace dark-site bundle | `lcm_marketplace_bundle_*.tar.gz` or extracted `.tar` folder |
 
 For detected file bundles, the scan records filename, path, size, modified
