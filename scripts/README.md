@@ -13,4 +13,10 @@ The `windows/` folder contains the MVP jumpserver runtime:
   scheduled-task fallback for early MVP use.
 - `install-iis-darksite.ps1` prepares a Windows Server/IIS dark-site web root
   for lab or customer-managed hosting validation.
+- `validate-darksite-prereqs.ps1` performs read-only local prerequisite checks
+  for PowerShell, IIS tooling, bundle path access, and optional URL reachability.
 - `uninstall-service.ps1` removes the NSSM service or scheduled task.
+
+The console exposes approved helper scripts for download only. It intentionally
+does not run helper scripts remotely; operators should review and execute them
+manually on the correct server.

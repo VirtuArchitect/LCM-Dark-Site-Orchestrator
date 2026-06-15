@@ -87,6 +87,9 @@ function Get-JsonValue {
     if (-not $Object) {
         return $Default
     }
+    if ($Object -is [System.Collections.IDictionary] -and $Object.Contains($Name)) {
+        return $Object[$Name]
+    }
     $property = $Object.PSObject.Properties[$Name]
     if ($property) {
         return $property.Value
@@ -128,6 +131,33 @@ function Get-InventoryHistoryPath {
 
 function Get-BackupDir {
     Join-Path $DataDir 'backups'
+}
+
+function Get-SitesPath {
+    Join-Path $DataDir 'sites.json'
+}
+
+function Get-ActiveSitePath {
+    Join-Path $DataDir 'active-site.txt'
+}
+
+function Write-TextResponse {
+    param(
+        [System.Net.HttpListenerResponse]$Response,
+        [string]$Body,
+        [string]$ContentType = 'text/plain; charset=utf-8',
+        [int]$StatusCode = 200,
+        [string]$DownloadName = ''
+    )
+
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Body)
+    $Response.StatusCode = $StatusCode
+    $Response.ContentType = $ContentType
+    if (-not [string]::IsNullOrWhiteSpace($DownloadName)) {
+        $Response.Headers.Add('Content-Disposition', "attachment; filename=`"$DownloadName`"")
+    }
+    $Response.ContentLength64 = $bytes.Length
+    $Response.OutputStream.Write($bytes, 0, $bytes.Length)
 }
 
 function Write-AuditEvent {
@@ -230,6 +260,156 @@ function Save-Users {
     Save-JsonFile -Path (Get-UsersPath) -Body @(ConvertTo-PlainArray -Items $Users)
 }
 
+function Load-Sites {
+    $path = Get-SitesPath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        return @()
+    }
+    return ConvertTo-PlainArray -Items (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json)
+}
+
+function Save-Sites {
+    param([object[]]$Sites)
+    Save-JsonFile -Path (Get-SitesPath) -Body @(ConvertTo-PlainArray -Items $Sites)
+}
+
+function Get-ActiveSiteId {
+    $path = Get-ActiveSitePath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        return ''
+    }
+    return (Get-Content -LiteralPath $path -Raw).Trim()
+}
+
+function Set-ActiveSiteId {
+    param([string]$SiteId)
+    $SiteId | Set-Content -LiteralPath (Get-ActiveSitePath) -Encoding ascii
+}
+
+function New-DarkSiteTarget {
+    param([object]$Payload)
+
+    $name = [string](Get-JsonValue -Object $Payload -Name 'name')
+    $domain = [string](Get-JsonValue -Object $Payload -Name 'domain')
+    $environment = [string](Get-JsonValue -Object $Payload -Name 'environment' -Default 'production')
+    $owner = [string](Get-JsonValue -Object $Payload -Name 'owner')
+    $bundlePath = [string](Get-JsonValue -Object $Payload -Name 'bundlePath')
+    $darksiteUrl = [string](Get-JsonValue -Object $Payload -Name 'darksiteUrl')
+    $platform = [string](Get-JsonValue -Object $Payload -Name 'webServerPlatform' -Default 'linux')
+
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        throw 'Site name is required'
+    }
+    if ([string]::IsNullOrWhiteSpace($domain)) {
+        throw 'Domain is required'
+    }
+    if ($platform -notin @('linux', 'windows')) {
+        throw 'Web server platform must be linux or windows'
+    }
+
+    $sites = @(Load-Sites)
+    $existing = @($sites | Where-Object { $_.name -eq $name -and $_.domain -eq $domain })
+    if ($existing.Count -gt 0) {
+        throw "Site already exists for domain: $name / $domain"
+    }
+
+    $site = [ordered]@{
+        id = [guid]::NewGuid().ToString('N')
+        name = $name
+        domain = $domain
+        environment = if ([string]::IsNullOrWhiteSpace($environment)) { 'production' } else { $environment }
+        owner = $owner
+        bundlePath = $bundlePath
+        darksiteUrl = $darksiteUrl
+        webServerPlatform = $platform
+        status = 'registered'
+        createdAt = [DateTimeOffset]::UtcNow.ToString('o')
+        updatedAt = [DateTimeOffset]::UtcNow.ToString('o')
+    }
+    Save-Sites -Sites @($sites + $site)
+    Write-AuditEvent -Action 'site.create' -Status 'success' -Message "Dark-site target registered: $name / $domain" -Details ([ordered]@{
+        siteId = $site.id
+        domain = $domain
+        environment = $site.environment
+    })
+    return $site
+}
+
+function Select-DarkSiteTarget {
+    param([string]$SiteId)
+
+    $site = @(Load-Sites) | Where-Object { $_.id -eq $SiteId } | Select-Object -First 1
+    if (-not $site) {
+        throw "Site was not found: $SiteId"
+    }
+
+    $siteId = [string](Get-JsonValue -Object $site -Name 'id')
+    $siteName = [string](Get-JsonValue -Object $site -Name 'name')
+    $domain = [string](Get-JsonValue -Object $site -Name 'domain')
+    $platform = [string](Get-JsonValue -Object $site -Name 'webServerPlatform' -Default 'linux')
+    $bundlePath = [string](Get-JsonValue -Object $site -Name 'bundlePath')
+    $darksiteUrl = [string](Get-JsonValue -Object $site -Name 'darksiteUrl')
+
+    Set-ActiveSiteId -SiteId $siteId
+    Save-Profile -Profile ([ordered]@{
+        siteName = $siteName
+        webServerPlatform = $platform
+        bundlePath = $bundlePath
+        darksiteUrl = $darksiteUrl
+    }) | Out-Null
+    Write-AuditEvent -Action 'site.select' -Status 'success' -Message "Active site selected: $siteName / $domain" -Details ([ordered]@{
+        siteId = $siteId
+        domain = $domain
+    })
+    return [ordered]@{
+        activeSiteId = $siteId
+        site = $site
+        profile = Load-Profile
+    }
+}
+
+function Get-GovernanceSummary {
+    $sites = @(Load-Sites)
+    $domains = @($sites | ForEach-Object { $_.domain } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+    $activeSiteId = Get-ActiveSiteId
+    [ordered]@{
+        activeSiteId = $activeSiteId
+        siteCount = $sites.Count
+        domainCount = $domains.Count
+        windowsCount = @($sites | Where-Object { $_.webServerPlatform -eq 'windows' }).Count
+        linuxCount = @($sites | Where-Object { $_.webServerPlatform -eq 'linux' }).Count
+        domains = $domains
+        sites = $sites
+    }
+}
+
+function Get-HelperScriptCatalog {
+    $scriptsRoot = Join-Path $PSScriptRoot '.'
+    @(
+        [ordered]@{
+            name = 'install-iis-darksite.ps1'
+            title = 'Prepare Windows IIS dark-site web root'
+            platform = 'Windows Server'
+            safety = 'Creates IIS role/app configuration only when run explicitly by an administrator.'
+            path = Join-Path $scriptsRoot 'install-iis-darksite.ps1'
+        },
+        [ordered]@{
+            name = 'validate-darksite-prereqs.ps1'
+            title = 'Validate local dark-site prerequisites'
+            platform = 'Windows Server'
+            safety = 'Read-only checks for PowerShell, IIS tooling, folder access, and optional URL reachability.'
+            path = Join-Path $scriptsRoot 'validate-darksite-prereqs.ps1'
+        },
+        [ordered]@{
+            name = 'install-service.ps1'
+            title = 'Install console as a Windows service'
+            platform = 'Windows Server'
+            safety = 'Installs the console service only when NSSM path and install directory are supplied.'
+            path = Join-Path $scriptsRoot 'install-service.ps1'
+        }
+    ) | Where-Object { Test-Path -LiteralPath $_.path -PathType Leaf }
+}
+
 function New-LocalUser {
     param([object]$Payload)
 
@@ -295,7 +475,9 @@ function New-StateBackup {
         (Get-ExtractionPath),
         (Get-WebValidationPath),
         (Get-AuditPath),
-        (Get-UsersPath)
+        (Get-UsersPath),
+        (Get-SitesPath),
+        (Get-ActiveSitePath)
     ) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
 
     if ($items.Count -eq 0) {
@@ -1008,6 +1190,57 @@ function Handle-ApiRequest {
                 note = 'PostgreSQL is recommended for a future multi-user deployment, but this MVP uses local JSON files.'
             }
         })
+        return $true
+    }
+
+    if ($path -eq '/api/sites') {
+        if ($request.HttpMethod -eq 'GET') {
+            Write-JsonResponse -Response $response -Body (Get-GovernanceSummary)
+            return $true
+        }
+        if ($request.HttpMethod -eq 'POST') {
+            $payload = Read-JsonRequest -Request $request
+            $site = New-DarkSiteTarget -Payload $payload
+            Write-JsonResponse -Response $response -Body ([ordered]@{
+                site = $site
+                governance = Get-GovernanceSummary
+            })
+            return $true
+        }
+    }
+
+    if ($path -eq '/api/active-site' -and $request.HttpMethod -eq 'POST') {
+        $payload = Read-JsonRequest -Request $request
+        $siteId = [string](Get-JsonValue -Object $payload -Name 'siteId')
+        Write-JsonResponse -Response $response -Body (Select-DarkSiteTarget -SiteId $siteId)
+        return $true
+    }
+
+    if ($path -eq '/api/helper-scripts' -and $request.HttpMethod -eq 'GET') {
+        Write-JsonResponse -Response $response -Body ([ordered]@{
+            scripts = @(Get-HelperScriptCatalog | ForEach-Object {
+                [ordered]@{
+                    name = $_.name
+                    title = $_.title
+                    platform = $_.platform
+                    safety = $_.safety
+                    downloadUrl = "/api/helper-script?name=$([System.Uri]::EscapeDataString($_.name))"
+                }
+            })
+            note = 'Helper scripts are never executed by the console. Download and run them manually after review.'
+        })
+        return $true
+    }
+
+    if ($path -eq '/api/helper-script' -and $request.HttpMethod -eq 'GET') {
+        $name = [string]$request.QueryString['name']
+        $script = @(Get-HelperScriptCatalog | Where-Object { $_.name -eq $name }) | Select-Object -First 1
+        if (-not $script) {
+            Write-JsonResponse -Response $response -StatusCode 404 -Body ([ordered]@{ error = 'Helper script not found or not approved for download' })
+            return $true
+        }
+        Write-AuditEvent -Action 'helper.download' -Status 'success' -Message "Helper script downloaded: $name" -Details ([ordered]@{ name = $name })
+        Write-TextResponse -Response $response -Body (Get-Content -LiteralPath $script.path -Raw) -ContentType 'text/plain; charset=utf-8' -DownloadName $script.name
         return $true
     }
 

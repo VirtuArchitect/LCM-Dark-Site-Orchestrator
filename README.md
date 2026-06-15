@@ -51,8 +51,8 @@ static console on `http://localhost:5055/` and stores operational state under
 5. Readiness dashboard. Implemented.
 6. Evidence pack export. Implemented.
 7. Guided runbook generation. Implemented.
-8. Optional safe helper scripts.
-9. Multi-site and multi-domain governance.
+8. Optional safe helper scripts. Implemented.
+9. Multi-site and multi-domain governance. Implemented.
 10. Optional integration with ZTF-Orchestrator.
 
 ## Distribution Plan
@@ -90,6 +90,10 @@ update engine.
 - Dark-site HTTP URL reachability checks for the base URL and detected bundle files.
 - Local evidence pack export under `C:\ProgramData\LCM-Dark-Site-Orchestrator\evidence`.
 - Generated runbook content based on the latest profile and validation state.
+- Approved helper script catalog with manual download only; the console does not
+  remotely execute scripts.
+- Multi-site and multi-domain governance register for tracking multiple
+  dark-site targets and loading a target into the active validation profile.
 
 ## Local API Surface
 
@@ -105,3 +109,7 @@ The PowerShell runtime exposes a small localhost API used by the dashboard:
 | `GET/POST /api/web-validation` | Load or run HTTP reachability validation. |
 | `GET/POST /api/evidence` | List or create evidence packs. |
 | `GET /api/runbook` | Generate a runbook from the latest local state. |
+| `GET/POST /api/sites` | List or register governed dark-site targets. |
+| `POST /api/active-site` | Load a registered target into the active profile. |
+| `GET /api/helper-scripts` | List approved manual helper scripts. |
+| `GET /api/helper-script?name=...` | Download a whitelisted helper script for review and manual execution. |

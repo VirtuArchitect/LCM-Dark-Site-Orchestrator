@@ -33,10 +33,12 @@
         <a class="nav-item" href="#/web-server" data-page-link="web-server">Web Server</a>
         <a class="nav-item" href="#/extraction-checks" data-page-link="extraction-checks">Extraction Checks</a>
         <div class="nav-group">Govern</div>
+        <a class="nav-item" href="#/governance" data-page-link="governance">Governance</a>
         <a class="nav-item" href="#/evidence" data-page-link="evidence">Evidence Archive</a>
         <a class="nav-item" href="#/runbook" data-page-link="runbook">Runbook</a>
         <a class="nav-item" href="#/audit-log" data-page-link="audit-log">Audit Log</a>
         <div class="nav-group">Admin</div>
+        <a class="nav-item" href="#/helper-scripts" data-page-link="helper-scripts">Helper Scripts</a>
         <a class="nav-item" href="#/rbac" data-page-link="rbac">RBAC</a>
         <a class="nav-item" href="#/database" data-page-link="database">Database</a>
         <a class="nav-item" href="#/settings" data-page-link="settings">Settings</a>
@@ -252,6 +254,96 @@
         </article>
       </section>
 
+      <section class="page" data-page="governance">
+        <section class="metrics">
+          <article class="metric-card">
+            <span class="metric-label">Sites</span>
+            <strong id="governance-site-count">0</strong>
+            <span class="metric-hint">Registered dark-site targets</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Domains</span>
+            <strong id="governance-domain-count">0</strong>
+            <span class="metric-hint" id="governance-domain-hint">No domains registered</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Linux</span>
+            <strong id="governance-linux-count">0</strong>
+            <span class="metric-hint">Guide-aligned targets</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Windows / IIS</span>
+            <strong id="governance-windows-count">0</strong>
+            <span class="metric-hint">Lab or customer-managed targets</span>
+          </article>
+        </section>
+
+        <section class="grid two-column">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Register Site</h2>
+                <p>Track each dark-site target by site, domain, owner, and hosting mode</p>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>Site Name
+                <input id="governance-site-name" placeholder="London Dark Site" />
+              </label>
+              <label>Domain
+                <input id="governance-domain" placeholder="emea.example.com" />
+              </label>
+              <label>Environment
+                <input id="governance-environment" placeholder="production" />
+              </label>
+              <label>Owner
+                <input id="governance-owner" placeholder="Platform Operations" />
+              </label>
+              <label class="wide">Local Bundle Path
+                <input id="governance-bundle-path" placeholder="C:\inetpub\wwwroot\darksite" />
+              </label>
+              <label class="wide">Dark-site URL
+                <input id="governance-darksite-url" placeholder="http://lcm-darksite/darksite/" />
+              </label>
+              <label>Web Server Platform
+                <select id="governance-platform">
+                  <option value="linux">linux</option>
+                  <option value="windows">windows</option>
+                </select>
+              </label>
+            </div>
+            <div class="profile-actions">
+              <button class="btn-primary" id="create-site-button">Register Site</button>
+              <span class="helper" id="governance-message">Registered sites can be loaded into the active validation profile.</span>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Governance Notes</h2>
+                <p>Current scope and controls</p>
+              </div>
+            </div>
+            <div class="check-list">
+              <div class="check-row good"><span></span><div><strong>Domain separation</strong><small>Sites are tagged by domain and environment for reporting.</small></div></div>
+              <div class="check-row warn-row"><span></span><div><strong>Shared runtime</strong><small>Validation state is still active-profile based in this MVP.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>Future hardening</strong><small>Per-site isolated evidence folders and enforced RBAC are the next governance step.</small></div></div>
+            </div>
+          </article>
+          <article class="panel wide-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Registered Sites</h2>
+                <p>Load a site into the active profile before running validation</p>
+              </div>
+            </div>
+            <div class="check-list" id="site-list">
+              <div class="check-row muted"><span></span><div><strong>No registered sites</strong><small>Add a site to begin multi-site tracking.</small></div></div>
+            </div>
+          </article>
+        </section>
+      </section>
+
       <section class="page" data-page="audit-log">
         <article class="panel">
           <div class="panel-heading">
@@ -265,6 +357,36 @@
             <div class="check-row muted"><span></span><div><strong>Audit trail foundation</strong><small>Profile saves, scans, validation runs, and evidence generation should be persisted here next.</small></div></div>
           </div>
         </article>
+      </section>
+
+      <section class="page" data-page="helper-scripts">
+        <section class="grid two-column">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Safe Helper Scripts</h2>
+                <p>Approved scripts for manual review and operator-led execution</p>
+              </div>
+              <span class="badge warn">Manual only</span>
+            </div>
+            <div class="check-list" id="helper-script-list">
+              <div class="check-row muted"><span></span><div><strong>Loading scripts</strong><small>Reading approved helper catalog...</small></div></div>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Operating Model</h2>
+                <p>Helpers are intentionally not remote execution</p>
+              </div>
+            </div>
+            <div class="check-list">
+              <div class="check-row good"><span></span><div><strong>Safe by default</strong><small>The console lists and downloads scripts; it does not run them on servers.</small></div></div>
+              <div class="check-row muted"><span></span><div><strong>Review before use</strong><small>Operators should inspect each script and run from an elevated shell only where appropriate.</small></div></div>
+              <div class="check-row warn-row"><span></span><div><strong>Windows/IIS caveat</strong><small>The official Nutanix dark-site workflow remains Linux web-server aligned.</small></div></div>
+            </div>
+          </article>
+        </section>
       </section>
 
       <section class="page" data-page="rbac">

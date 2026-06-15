@@ -125,6 +125,33 @@ The prepare action creates the folder if it is missing and writes a small marker
 file explaining what should be staged there. It rejects relative paths and drive
 or share roots to avoid accidentally using an unsafe location.
 
+## Safe Helper Scripts
+
+The **Helper Scripts** page lists approved scripts from `scripts\windows` and
+allows operators to download them for review and manual execution. The console
+does not remotely execute helper scripts.
+
+For a read-only prerequisite check, run:
+
+```powershell
+.\scripts\windows\validate-darksite-prereqs.ps1 `
+  -BundlePath "C:\inetpub\wwwroot\darksite" `
+  -DarksiteUrl "http://localhost/darksite/"
+```
+
+Use `-Json` when the output needs to be attached to a change record.
+
+## Multi-Site Governance
+
+The **Governance** page can register multiple dark-site targets by site, domain,
+environment, owner, bundle path, URL, and web-server platform. Use **Load
+Profile** on a registered site before running inventory, extraction, web
+validation, runbook generation, or evidence capture.
+
+Current MVP governance is a local register. Validation state remains tied to the
+active profile, so complete and export evidence for one site before switching to
+another target.
+
 ## Data Locations
 
 ```text
@@ -141,6 +168,8 @@ C:\ProgramData\LCM-Dark-Site-Orchestrator\profile.json
 C:\ProgramData\LCM-Dark-Site-Orchestrator\last-inventory.json
 C:\ProgramData\LCM-Dark-Site-Orchestrator\last-extraction.json
 C:\ProgramData\LCM-Dark-Site-Orchestrator\last-web-validation.json
+C:\ProgramData\LCM-Dark-Site-Orchestrator\sites.json
+C:\ProgramData\LCM-Dark-Site-Orchestrator\active-site.txt
 ```
 
 ## Bundle Inventory Phase

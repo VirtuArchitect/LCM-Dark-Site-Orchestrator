@@ -11,6 +11,8 @@ The application should:
 - validate local bundle inventory and extracted web-server structure;
 - validate Linux and Windows static web-server reachability;
 - generate operator runbooks and evidence packs;
+- provide approved helper scripts for manual download and review;
+- maintain a local multi-site and multi-domain governance register;
 - track readiness history and audit-relevant operator actions.
 
 The application should not:
@@ -47,4 +49,14 @@ Dark-site profile
   -> web URL probe
   -> readiness score
   -> evidence archive
+
+Governance register
+  -> site/domain ownership
+  -> active profile selection
+  -> audit event
+
+Helper script catalog
+  -> approved script metadata
+  -> manual download only
+  -> operator-run outside the console
 ```

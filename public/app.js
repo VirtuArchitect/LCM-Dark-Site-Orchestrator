@@ -45,6 +45,22 @@ const rbacMessage = document.querySelector('#rbac-message');
 const backupList = document.querySelector('#backup-list');
 const createBackupButton = document.querySelector('#create-backup-button');
 const refreshBackupsButton = document.querySelector('#refresh-backups-button');
+const governanceSiteCount = document.querySelector('#governance-site-count');
+const governanceDomainCount = document.querySelector('#governance-domain-count');
+const governanceDomainHint = document.querySelector('#governance-domain-hint');
+const governanceLinuxCount = document.querySelector('#governance-linux-count');
+const governanceWindowsCount = document.querySelector('#governance-windows-count');
+const governanceSiteName = document.querySelector('#governance-site-name');
+const governanceDomain = document.querySelector('#governance-domain');
+const governanceEnvironment = document.querySelector('#governance-environment');
+const governanceOwner = document.querySelector('#governance-owner');
+const governanceBundlePath = document.querySelector('#governance-bundle-path');
+const governanceDarksiteUrl = document.querySelector('#governance-darksite-url');
+const governancePlatform = document.querySelector('#governance-platform');
+const governanceMessage = document.querySelector('#governance-message');
+const createSiteButton = document.querySelector('#create-site-button');
+const siteList = document.querySelector('#site-list');
+const helperScriptList = document.querySelector('#helper-script-list');
 
 const pageMeta = {
   dashboard: ['Dashboard', 'Dark-site bundle readiness, web-server validation, and evidence capture'],
@@ -54,7 +70,9 @@ const pageMeta = {
   'extraction-checks': ['Extraction Checks', 'Extracted Nutanix Central and CPaaS payload readiness'],
   evidence: ['Evidence Archive', 'Generated evidence bundles for change records'],
   runbook: ['Runbook', 'Operator-facing implementation notes'],
+  governance: ['Governance', 'Multi-site and multi-domain dark-site register'],
   'audit-log': ['Audit Log', 'Local operator activity and runtime events'],
+  'helper-scripts': ['Helper Scripts', 'Approved manual scripts for local validation and setup'],
   rbac: ['RBAC', 'Role model and access-control roadmap'],
   database: ['Database', 'Storage backend and PostgreSQL roadmap'],
   settings: ['Settings', 'Local runtime paths and platform options'],
@@ -318,6 +336,46 @@ function renderInventoryHistory(data) {
     : '<div class="check-row muted"><span></span><div><strong>No inventory scans yet</strong><small>Run Scan Bundle Inventory to record the first update snapshot.</small></div></div>';
 }
 
+function renderGovernance(governance) {
+  const sites = asArray(governance?.sites);
+  const domains = asArray(governance?.domains);
+  const activeSiteId = governance?.activeSiteId || '';
+  governanceSiteCount.textContent = String(governance?.siteCount || sites.length || 0);
+  governanceDomainCount.textContent = String(governance?.domainCount || domains.length || 0);
+  governanceLinuxCount.textContent = String(governance?.linuxCount || 0);
+  governanceWindowsCount.textContent = String(governance?.windowsCount || 0);
+  governanceDomainHint.textContent = domains.length ? domains.join(', ') : 'No domains registered';
+
+  siteList.innerHTML = sites.length
+    ? sites.map((site) => `
+      <div class="check-row ${site.id === activeSiteId ? 'good' : 'muted'}">
+        <span></span>
+        <div>
+          <strong>${escapeHtml(site.name)}${site.id === activeSiteId ? ' - active' : ''}</strong>
+          <small>${escapeHtml(site.domain)} - ${escapeHtml(site.environment || 'production')} - ${escapeHtml(site.webServerPlatform || 'linux')} - ${escapeHtml(site.darksiteUrl || 'no URL')}</small>
+        </div>
+        <button class="btn row-action" data-select-site="${escapeHtml(site.id)}">Load Profile</button>
+      </div>
+    `).join('')
+    : '<div class="check-row muted"><span></span><div><strong>No registered sites</strong><small>Add a site to begin multi-site tracking.</small></div></div>';
+}
+
+function renderHelperScripts(data) {
+  const scripts = asArray(data?.scripts);
+  helperScriptList.innerHTML = scripts.length
+    ? scripts.map((script) => `
+      <div class="check-row good">
+        <span></span>
+        <div>
+          <strong>${escapeHtml(script.title || script.name)}</strong>
+          <small>${escapeHtml(script.platform || 'manual')} - ${escapeHtml(script.safety || '')}</small>
+        </div>
+        <a class="btn row-action" href="${escapeHtml(script.downloadUrl || '#')}">Download</a>
+      </div>
+    `).join('')
+    : '<div class="check-row muted"><span></span><div><strong>No helper scripts found</strong><small>Approved script files were not found in scripts/windows.</small></div></div>';
+}
+
 async function refreshAudit() {
   renderAudit(await api('/api/audit'));
 }
@@ -328,6 +386,10 @@ async function refreshBackups() {
 
 async function refreshInventoryHistory() {
   renderInventoryHistory(await api('/api/inventory-history'));
+}
+
+async function refreshGovernance() {
+  renderGovernance(await api('/api/sites'));
 }
 
 function currentPage() {
@@ -387,7 +449,7 @@ function renderReadiness() {
 
 async function loadState() {
   try {
-    const [profile, inventory, extraction, webValidation, evidence, audit, storage, users, backups, inventoryHistory] = await Promise.all([
+    const [profile, inventory, extraction, webValidation, evidence, audit, storage, users, backups, inventoryHistory, governance, helperScripts] = await Promise.all([
       api('/api/profile'),
       api('/api/inventory'),
       api('/api/extraction'),
@@ -398,6 +460,8 @@ async function loadState() {
       api('/api/users'),
       api('/api/backups'),
       api('/api/inventory-history'),
+      api('/api/sites'),
+      api('/api/helper-scripts'),
     ]);
     renderProfile(profile);
     renderInventory(inventory);
@@ -409,6 +473,8 @@ async function loadState() {
     renderUsers(users);
     renderBackups(backups);
     renderInventoryHistory(inventoryHistory);
+    renderGovernance(governance);
+    renderHelperScripts(helperScripts);
     setMessage('Profile loaded from local jumpserver state.');
   } catch (error) {
     setMessage(error.message, 'error');
@@ -556,6 +622,54 @@ createUserButton.addEventListener('click', async () => {
   } catch (error) {
     rbacMessage.textContent = error.message;
     rbacMessage.dataset.tone = 'error';
+  }
+});
+
+createSiteButton.addEventListener('click', async () => {
+  try {
+    const result = await api('/api/sites', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: governanceSiteName.value.trim(),
+        domain: governanceDomain.value.trim(),
+        environment: governanceEnvironment.value.trim() || 'production',
+        owner: governanceOwner.value.trim(),
+        bundlePath: governanceBundlePath.value.trim(),
+        darksiteUrl: governanceDarksiteUrl.value.trim(),
+        webServerPlatform: governancePlatform.value,
+      }),
+    });
+    renderGovernance(result.governance);
+    governanceSiteName.value = '';
+    governanceDomain.value = '';
+    governanceEnvironment.value = '';
+    governanceOwner.value = '';
+    governanceBundlePath.value = '';
+    governanceDarksiteUrl.value = '';
+    governanceMessage.textContent = 'Site registered and audit event recorded.';
+    governanceMessage.dataset.tone = 'success';
+    await refreshAudit();
+  } catch (error) {
+    governanceMessage.textContent = error.message;
+    governanceMessage.dataset.tone = 'error';
+  }
+});
+
+siteList.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-select-site]');
+  if (!button) return;
+  try {
+    const result = await api('/api/active-site', {
+      method: 'POST',
+      body: JSON.stringify({ siteId: button.dataset.selectSite }),
+    });
+    renderProfile(result.profile);
+    await refreshGovernance();
+    await refreshAudit();
+    setMessage('Registered site loaded into the active profile.', 'success');
+  } catch (error) {
+    governanceMessage.textContent = error.message;
+    governanceMessage.dataset.tone = 'error';
   }
 });
 
